@@ -86,10 +86,10 @@ ggplot(buoy_therm_vert_L1, aes(x=datetime, y=value, color=variable)) +
   scale_color_manual(values=c("#000000", "#999999", "#997300", "#ffbf00", "#173fb5", "#a5b8f3",
                               "#00664b", "#00e639", "#8d840c", "#d4c711", "#f5ee89", "#005180", "#0081cc"))
 
-#some errant points early on in 12m thermistor
+#some errant points early on in 12m thermistor - per conversation with Holly, will recode all to NA until it consistently functions in July.
 
 ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2019-05-01', tz='UTC') & datetime<as.POSIXct('2019-06-01', tz='UTC'))),
-              aes(x=datetime, y=value, color=variable)) +
+       aes(x=datetime, y=value, color=variable)) +
   geom_point() +
   labs(title = 'May 2019 thermister data - NAs recoded', y='temp (deg C)') +
   final_theme +
@@ -116,7 +116,7 @@ buoy_therm_vert_L1 <- L1_2019 %>%
   gather(variable, value, -datetime) %>% 
   mutate(variable = factor(variable, c(therm)))
 
-#errant 12m stating on may 11-may 22
+#errant 12m stating on may 11-jul 31
 ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2019-05-11', tz='UTC') & datetime<as.POSIXct('2019-05-12', tz='UTC'))),
        aes(x=datetime, y=value, color=variable)) +
   geom_point() +
@@ -125,38 +125,18 @@ ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2019-05-11', tz=
   scale_x_datetime(date_minor_breaks = '1 hour') +
   scale_color_manual(values=c("#000000", "#999999", "#997300", "#ffbf00", "#173fb5", "#a5b8f3",
                               "#00664b", "#00e639", "#8d840c", "#d4c711", "#f5ee89", "#005180", "#0081cc"))
-ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2019-05-22', tz='UTC') & datetime<as.POSIXct('2019-05-23', tz='UTC'))),
+ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2019-07-31', tz='UTC') & datetime<as.POSIXct('2019-08-01', tz='UTC'))),
        aes(x=datetime, y=value, color=variable)) +
   geom_point() +
-  labs(title = 'May 2019 12m probe erro', y='temp (deg C)') +
+  labs(title = 'Jul 2019 12m probe error', y='temp (deg C)') +
   final_theme +
   scale_x_datetime(date_minor_breaks = '1 hour') +
   scale_color_manual(values=c("#000000", "#999999", "#997300", "#ffbf00", "#173fb5", "#a5b8f3",
                               "#00664b", "#00e639", "#8d840c", "#d4c711", "#f5ee89", "#005180", "#0081cc"))
 
-#errant 12m may 27 - 
-ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2019-05-27', tz='UTC') & datetime<as.POSIXct('2019-05-28', tz='UTC'))),
-       aes(x=datetime, y=value, color=variable)) +
-  geom_point() +
-  labs(title = 'May 2019 12m probe erro', y='temp (deg C)') +
-  final_theme +
-  scale_x_datetime(date_minor_breaks = '1 hour') +
-  scale_color_manual(values=c("#000000", "#999999", "#997300", "#ffbf00", "#173fb5", "#a5b8f3",
-                              "#00664b", "#00e639", "#8d840c", "#d4c711", "#f5ee89", "#005180", "#0081cc"))
-ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2019-06-01', tz='UTC') & datetime<as.POSIXct('2019-06-02', tz='UTC'))),
-       aes(x=datetime, y=value, color=variable)) +
-  geom_point() +
-  labs(title = 'June 2019 12m probe erro', y='temp (deg C)') +
-  final_theme +
-  scale_x_datetime(date_minor_breaks = '1 hour') +
-  scale_color_manual(values=c("#000000", "#999999", "#997300", "#ffbf00", "#173fb5", "#a5b8f3",
-                              "#00664b", "#00e639", "#8d840c", "#d4c711", "#f5ee89", "#005180", "#0081cc"))
 
 L1_2019 <- L1_2019 %>% 
-  mutate(temp_C_12m = case_when(datetime>=as.POSIXct('2019-05-11 3:10', tz='UTC') &
-                                  datetime<as.POSIXct('2019-05-22 5:00', tz='UTC') ~ NA_real_,
-                                datetime>=as.POSIXct('2019-05-27 11:50', tz='UTC') &
-                                  datetime<as.POSIXct('2019-06-01 19:40', tz='UTC') ~ NA_real_,
+  mutate(temp_C_12m = case_when(datetime<=as.POSIXct('2019-07-31 13:50', tz='UTC') ~ NA_real_,
                                 TRUE ~ temp_C_12m))
 buoy_therm_vert_L1 <- L1_2019 %>% 
   select(datetime, therm) %>% 
@@ -345,14 +325,14 @@ buoy_do_vert_L1 <- L1_2019 %>%
                            variable == 'dotemp_C_32m' ~ 32,
                            variable == 'do_sat_pct_32m' ~ 32),
          sensor = case_when(variable == 'do_ppm_1m' ~ 'do_ppm',
-                           variable == 'dotemp_C_1m' ~ 'do_temp',
-                           variable == 'do_sat_pct_1m' ~ 'do_sat',
-                           variable == 'do_ppm_14.5m' ~ 'do_ppm',
-                           variable == 'dotemp_C_14.5m' ~ 'do_temp',
-                           variable == 'do_sat_pct_14.5m' ~ 'do_sat',
-                           variable == 'do_ppm_32m' ~ 'do_ppm',
-                           variable == 'dotemp_C_32m' ~ 'do_temp',
-                           variable == 'do_sat_pct_32m' ~ 'do_sat'))
+                            variable == 'dotemp_C_1m' ~ 'do_temp',
+                            variable == 'do_sat_pct_1m' ~ 'do_sat',
+                            variable == 'do_ppm_14.5m' ~ 'do_ppm',
+                            variable == 'dotemp_C_14.5m' ~ 'do_temp',
+                            variable == 'do_sat_pct_14.5m' ~ 'do_sat',
+                            variable == 'do_ppm_32m' ~ 'do_ppm',
+                            variable == 'dotemp_C_32m' ~ 'do_temp',
+                            variable == 'do_sat_pct_32m' ~ 'do_sat'))
 
 ggplot(buoy_do_vert_L1, aes(x=datetime, y=value, color=as.factor(depth))) +
   geom_point() +
@@ -432,7 +412,7 @@ ggplot(subset(buoy_do_vert_L1, subset=(datetime>=as.POSIXct('2019-06-01', tz='UT
   scale_x_datetime(date_minor_breaks = '1 day') +
   scale_color_colorblind()
 
-#June 5 errat at 1m
+#June 5 errant at 1m
 ggplot(subset(buoy_do_vert_L1, subset=(datetime>=as.POSIXct('2019-06-05', tz='UTC') & datetime<as.POSIXct('2019-06-06', tz='UTC'))), 
        aes(x=datetime, y=value, color=as.factor(depth))) +
   geom_point() +
@@ -455,6 +435,17 @@ ggplot(subset(buoy_do_vert_L1, subset=(datetime>=as.POSIXct('2019-06-14 12:00', 
   scale_x_datetime(date_minor_breaks = '1 hour') +
   scale_color_colorblind()
 
+L1_2019 <- L1_2019 %>% 
+  mutate_at(vars(do_ppm_1m, do_sat_pct_1m),
+            funs(case_when(datetime >= as.POSIXct('2019-06-14 21:30', tz='UTC') &
+                             datetime < as.POSIXct('2019-06-14 23:30', tz='UTC')~ NA_real_,
+                           TRUE ~ .))) %>% 
+  mutate(do_1m_flag = case_when(datetime >= as.POSIXct('2019-06-14 21:30', tz='UTC') &
+                                  datetime < as.POSIXct('2019-06-14 23:30', tz='UTC')~ 'presumed errant, recoded to NA',
+                                datetime >= as.POSIXct('2019-06-14 23:30', tz='UTC') &
+                                  datetime < as.POSIXct('2019-06-19 10:50', tz='UTC')~ 'drop in DO is questionable, apply data with caution',
+                                TRUE ~ NA_character_))
+
 #june 19
 ggplot(subset(buoy_do_vert_L1, subset=(datetime>=as.POSIXct('2019-06-19', tz='UTC') & datetime<as.POSIXct('2019-06-20', tz='UTC'))), 
        aes(x=datetime, y=value, color=as.factor(depth))) +
@@ -470,6 +461,26 @@ L1_2019 <- L1_2019 %>%
             funs(case_when(datetime>=as.POSIXct('2019-06-19 11:00', tz='UTC') &
                              datetime < as.POSIXct('2019-06-19 11:40', tz='UTC')~ NA_real_,
                            TRUE ~ .))) 
+
+#jue 25, drop in do at 14.5 errant from there until replacement. flag all data prior.
+ggplot(subset(buoy_do_vert_L1, subset=(datetime>=as.POSIXct('2019-06-25', tz='UTC') & datetime<as.POSIXct('2019-06-26', tz='UTC'))), 
+       aes(x=datetime, y=value, color=as.factor(depth))) +
+  geom_point() +
+  facet_grid(sensor ~ ., scales='free_y') +
+  labs(title = 'June 2019 do data - NAs removed', y='temp (deg C)') +
+  final_theme +
+  scale_x_datetime(date_minor_breaks = '1 hour') +
+  scale_color_colorblind()
+
+L1_2019 <- L1_2019 %>% 
+  mutate_at(vars(do_ppm_14.5m, do_sat_pct_14.5m),
+            funs(case_when(datetime>=as.POSIXct('2019-06-25 16:30', tz='UTC') &
+                             datetime < as.POSIXct('2019-08-28 11:50', tz='UTC')~ NA_real_,
+                           TRUE ~ .))) %>% 
+  mutate(do_14.5m_flag = case_when(datetime<as.POSIXct('2019-06-25 16:30', tz='UTC') &
+                                     datetime >= as.POSIXct('2019-05-09 13:00', tz='UTC')~ 'DO unit fails on June 25, apply data with caution',
+                                   TRUE ~ NA_character_))
+
 
 #odd point on 26th at 1m
 ggplot(subset(buoy_do_vert_L1, subset=(datetime>=as.POSIXct('2019-06-26', tz='UTC') & datetime<as.POSIXct('2019-06-27', tz='UTC'))), 
@@ -555,25 +566,13 @@ ggplot(subset(buoy_do_vert_L1, subset=(datetime>=as.POSIXct('2019-07-31', tz='UT
   scale_x_datetime(date_minor_breaks = '1 hour') +
   scale_color_colorblind()
 
-#14.5 replaced on august 28 - but has some errant data between.
-ggplot(subset(buoy_do_vert_L1, subset=(datetime>=as.POSIXct('2019-08-28', tz='UTC') & datetime<as.POSIXct('2019-08-29', tz='UTC'))), 
-       aes(x=datetime, y=value, color=as.factor(depth))) +
-  geom_point() +
-  facet_grid(sensor ~ ., scales='free_y') +
-  labs(title = 'August 2019 do data - clean', y='temp (deg C)') +
-  final_theme +
-  scale_x_datetime(date_minor_breaks = '1 hour') +
-  scale_color_colorblind()
-
-
 L1_2019 <- L1_2019 %>% 
-  mutate_at(vars(do_ppm_14.5m, do_sat_pct_14.5m, dotemp_C_14.5m),
-            funs(case_when(datetime>=as.POSIXct('2019-07-31 12:10', tz='UTC') &
-                             datetime < as.POSIXct('2019-08-28 11:50', tz='UTC')~ NA_real_,
-                           TRUE ~ .))) %>% 
+  mutate(dotemp_C_14.5m = case_when(datetime>=as.POSIXct('2019-07-31 12:10', tz='UTC') &
+                                      datetime < as.POSIXct('2019-08-28 11:50', tz='UTC') ~ NA_real_,
+                                    TRUE ~ dotemp_C_14.5m)) %>% 
   mutate_at(vars(do_ppm_32m, do_sat_pct_32m, dotemp_C_32m),
             funs(case_when(datetime>=as.POSIXct('2019-07-31 13:30', tz='UTC') &
-                             datetime < as.POSIXct('2019-07-31 14:00', tz='UTC')~ NA_real_,
+                             datetime < as.POSIXct('2019-07-31 14:00', tz='UTC') ~ NA_real_,
                            TRUE ~ .)))
 
 buoy_do_vert_L1 <- L1_2019 %>% 
@@ -618,12 +617,13 @@ ggplot(subset(buoy_do_vert_L1, subset=(datetime>=as.POSIXct('2019-08-01', tz='UT
   scale_x_datetime(date_minor_breaks = '1 day') +
   scale_color_colorblind()
 
-#aug 28 14m replacement
+
+#14.5 replaced on august 28
 ggplot(subset(buoy_do_vert_L1, subset=(datetime>=as.POSIXct('2019-08-28', tz='UTC') & datetime<as.POSIXct('2019-08-29', tz='UTC'))), 
        aes(x=datetime, y=value, color=as.factor(depth))) +
   geom_point() +
   facet_grid(sensor ~ ., scales='free_y') +
-  labs(title = 'August 2019 do data - NA removed', y='temp (deg C)') +
+  labs(title = 'August 2019 do data - clean', y='temp (deg C)') +
   final_theme +
   scale_x_datetime(date_minor_breaks = '1 hour') +
   scale_color_colorblind()
