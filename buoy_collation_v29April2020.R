@@ -8,31 +8,45 @@ source('libraries_lists_functions.R')
 #read in L1 data
 
 buoy2013 <- read_csv('C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013.csv',
-                     col_types = 'Tnnnnnnnnnnnnnnnnnnnnn')
+                     col_types = 'cnnnnnnnnnnnnnnnnnnnnnc') %>% 
+  mutate(datetime_EST = as.POSIXct(datetime_EST, tz = 'EST'),
+         datetime_instrument = as.POSIXct(datetime_EST, tz = 'Etc/GMT+4'))
 str(buoy2013)
 
 buoy2014 <- read_csv('C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2014.csv',
-                     col_types = 'Tnnnnnnnnnnnnnnnnnnnnn')
+                     col_types = 'cnnnnnnnnnnnnnnnnnnnnnc')%>% 
+  mutate(datetime_EST = as.POSIXct(datetime_EST, tz = 'EST'),
+         datetime_instrument = as.POSIXct(datetime_EST, tz = 'Etc/GMT+4'))
 str(buoy2014)
 
 buoy2015 <- read_csv('C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2015.csv',
-                     col_types = 'Tnnnnnnnnnnnnnnnnnnnnn')
+                     col_types = 'cnnnnnnnnnnnnnnnnnnnnnc')%>% 
+  mutate(datetime_EST = as.POSIXct(datetime_EST, tz = 'EST'),
+         datetime_instrument = as.POSIXct(datetime_EST, tz = 'Etc/GMT+4'))
 str(buoy2015)
 
 buoy2016 <- read_csv('C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2016.csv',
-                     col_types = 'Tnnnnnnnnnnnnnnnnnnnnn')
+                     col_types = 'cnnnnnnnnnnnnnnnnnnnnnc')%>% 
+  mutate(datetime_EST = as.POSIXct(datetime_EST, tz = 'EST'),
+         datetime_instrument = as.POSIXct(datetime_EST, tz = 'Etc/GMT+4'))
 str(buoy2016)
 
 buoy2017 <- read_csv('C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2017.csv',
-                     col_types = 'Tnnnnnnnnnnnnnnnnnnnnn')
+                     col_types = 'cnnnnnnnnnnnnnnnnnnnnnc')%>% 
+  mutate(datetime_EST = as.POSIXct(datetime_EST, tz = 'EST'),
+         datetime_instrument = as.POSIXct(datetime_EST, tz = 'Etc/GMT+4'))
 str(buoy2017)
 
 buoy2018 <- read_csv('C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2018.csv',
-                     col_types = 'Tnnnnnnnnnnnnnnnnnnnnn')
+                     col_types = 'cnnnnnnnnnnnnnnnnnnnnnc')%>% 
+  mutate(datetime_EST = as.POSIXct(datetime_EST, tz = 'EST'),
+         datetime_instrument = as.POSIXct(datetime_EST, tz = 'Etc/GMT+4'))
 str(buoy2018)
 
 buoy2019 <- read_csv('C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2019.csv',
-                     col_types = 'Tnnnnnnnnnnnnnnnnnnnnncc')
+                     col_types = 'cnnnnnnnnnnnnnnnnnnnnnccc')%>% 
+  mutate(datetime_EST = as.POSIXct(datetime_EST, tz = 'EST'),
+         datetime_instrument = as.POSIXct(datetime_EST, tz = 'Etc/GMT+4'))
 str(buoy2019)
 
 
@@ -44,14 +58,22 @@ buoy_1319 <- full_join(buoy2013, buoy2014) %>%
   full_join(., buoy2018) %>% 
   full_join(., buoy2019) 
 
+#double check for TZ issues
+dst_check <- buoy_1319 %>% 
+  mutate(date = format(datetime_EST, '%Y-%m-%d')) %>% 
+  group_by(date) %>% 
+  summarize(n_obs = length(datetime_EST))
+view(dst_check)
+
 buoy_1319 %>% 
-  mutate(datetime = as.character(datetime)) %>% 
-  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013_2019_v29April2020.csv')
+  select(-datetime_instrument) %>% 
+  mutate(datetime_EST = as.character(datetime_EST)) %>% 
+  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013_2019_v18March2021.csv')
   
 #create vertical dataset
 buoy_1319_vert <- buoy_1319 %>% 
-  select(-bat_v) %>% 
-  gather(variable, value, -datetime, -do_1m_flag, -do_14.5m_flag)
+  select(-datetime_instrument) %>% 
+  gather(variable, value, -datetime_EST, -do_1m_flag, -do_14.5m_flag)
 unique(buoy_1319_vert$variable)
 
 #recode variables for depth to parameter, depth, value, flag
@@ -73,6 +95,7 @@ unique(buoy_1319_vert$parameter)
 #add sensor column
 buoy_1319_vert <- buoy_1319_vert %>% 
   mutate(sensor_class = case_when(grepl('do', parameter) ~ 'DO',
+                                  parameter == 'bat' ~ 'other',
                                   TRUE ~ 'thermistor'),
          parameter = case_when(grepl('temp', parameter) ~ 'waterTemperature',
                                parameter == 'do' ~ 'dissolvedOxygen',
@@ -80,6 +103,7 @@ buoy_1319_vert <- buoy_1319_vert %>%
          unit = case_when(grepl('C', unit) ~ 'degreesCelsius',
                           grepl('sat', unit) ~ 'percentSaturation',
                           grepl('ppm', unit) ~ 'milligramsPerLiter',
+                          is.na(unit) ~ 'volts',
                           TRUE ~ unit))
 
 unique(buoy_1319_vert$unit)
@@ -97,12 +121,12 @@ buoy_1319_vert <- buoy_1319_vert %>%
 
 #write RMNA and incNA datasets
 buoy_1319_vert %>% 
-  mutate(datetime = as.character(datetime)) %>% 
-  select(datetime, parameter, depth_m, value, unit, flag, sensor_class) %>% 
-  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013_2019_vert_v29April2020.csv')
+  mutate(datetime_EST = as.character(datetime_EST)) %>% 
+  select(datetime_EST, parameter, depth_m, value, unit, flag, sensor_class) %>% 
+  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013_2019_vert_v17March2021.csv')
 
 buoy_1319_vert %>% 
-  mutate(datetime = as.character(datetime)) %>% 
-  select(datetime, parameter, depth_m, value, unit, flag, sensor_class) %>%
+  mutate(datetime_EST = as.character(datetime_EST)) %>% 
+  select(datetime_EST, parameter, depth_m, value, unit, flag, sensor_class) %>%
   filter(!is.na(value)) %>% 
-  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013_2019_vert_rmna_v29April2020.csv')
+  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013_2019_vert_rmna_v17March2021.csv')

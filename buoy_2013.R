@@ -7,23 +7,35 @@
 # R version: 3.4.3                                    #
 #######################################################
 
+source('libraries_lists_functions.R')
+
 # July-Nov2013
 L0_2013a <- read_xls("C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/raw_data/buoy/raw_files/BatesDataSonde_hae.xls", 
                      sheet="raw data", 
                      skip=1, 
                      col_names=varnames2016) %>% 
-  mutate(datetime = as.POSIXct(strptime(datetime, "%Y-%m-%d %H:%M:%S", tz='EST')))
+  mutate(datetime = as.POSIXct(strptime(datetime, "%Y-%m-%d %H:%M:%S", tz='Etc/GMT+4'))) #stays in DST for whole year
 
 # Nov2013
 L0_2013b <- read_csv("C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/raw_data/buoy/raw_files/batescollege_11-04-2013_11-24-2013.csv", 
                      skip=3, 
                      col_names = varnames2016) %>% 
-  mutate(datetime = as.POSIXct(strptime(datetime, "%m/%d/%Y %H:%M", tz='EST'))) %>% 
-  filter(datetime>as.POSIXct("2013-11-17 01:50:00", tz='EST'))
+  mutate(datetime = as.POSIXct(strptime(datetime, "%m/%d/%Y %H:%M", tz='Etc/GMT+4'))) %>%  #stays in DST for whole year
+  filter(datetime>as.POSIXct("2013-11-17 01:50:00", tz='Etc/GMT+4'))
 #warnings okay
 
 #merge to a single L0 file
-L0_2013 <- full_join(L0_2013a, L0_2013b)
+L0_2013 <- full_join(L0_2013a, L0_2013b) %>% 
+  rename(datetime_instrument = datetime)
+
+#do a quick check of number of obs per hour to see if DST is in play
+dst_check <- L0_2013 %>% 
+  mutate(date = format(datetime_instrument, '%Y-%m-%d')) %>% 
+  group_by(date) %>% 
+  summarize(n_obs = length(datetime_instrument))
+view(dst_check)
+#DST in 2014: 03/10/13; 11/03/13 look at/around those dates
+
 
 #clean up work space
 rm(L0_2013a, L0_2013b)
@@ -63,7 +75,7 @@ L0_2013_vert <- L0_2013 %>%
                                   TRUE ~ 'do'))
 
 # L0_2013_vert %>%
-#   ggplot(aes(x=datetime, y=value, color=depth)) +
+#   ggplot(aes(x=datetime_instrument, y=value, color=depth)) +
 #   facet_grid(sensor_type ~ ., scales='free_y') +
 #   geom_point() +
 #   labs(title = 'Raw Buoy data 2013') +
@@ -77,7 +89,7 @@ L1_2013 <- L0_2013 %>%
 
 L1_2013_vert <- L1_2013 %>%
   select(-bat_v) %>%
-  gather(sensor, value, -datetime) %>%
+  gather(sensor, value, -datetime_instrument) %>%
   mutate(depth = as.numeric(''),
          sensor_type = as.character(''),
          sensor_class = as.character(''),
@@ -115,7 +127,7 @@ L1_2013_vert <- L1_2013 %>%
                                  TRUE ~ sensor))
 
 # L1_2013_vert %>%
-#   ggplot(aes(x=datetime, y=value, color=depth)) +
+#   ggplot(aes(x=datetime_instrument, y=value, color=depth)) +
 #   facet_grid(sensor_type ~ ., scales='free_y') +
 #   geom_point() +
 #   labs(title = 'Buoy data 2013 - NAs recoded') +
@@ -123,12 +135,12 @@ L1_2013_vert <- L1_2013 %>%
 
 #THERMISTERS
 buoy_therm_vert_L1 <- L1_2013 %>% 
-  select(datetime, therm) %>% 
-  gather(variable, value, -datetime) %>% 
+  select(datetime_instrument, therm) %>% 
+  gather(variable, value, -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(therm)))
 
 # ggplot(buoy_therm_vert_L1, 
-#        aes(x=datetime, y=value, color=variable)) +
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = '2013 thermister data - NAs recoded', y='temp (deg C)') +
 #   final_theme +
@@ -137,8 +149,8 @@ buoy_therm_vert_L1 <- L1_2013 %>%
 #                               "#a5b8f3", "#00664b", "#00e639", "#8d840c", "#d4c711", 
 #                               "#f5ee89", "#005180", "#0081cc"))
 # 
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-07-01', tz='EST') & datetime<as.POSIXct('2013-08-01', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-07-01', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-08-01', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'July 2013 thermister data - NAs recoded', y='temp (deg C)') +
 #   final_theme +
@@ -148,8 +160,8 @@ buoy_therm_vert_L1 <- L1_2013 %>%
 #                               "#f5ee89", "#005180", "#0081cc"))
 # 
 # # Jul 25 - buoy deployed
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-07-25', tz='EST') & datetime<as.POSIXct('2013-07-26', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-07-25', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-07-26', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'July 2013 thermister data - NAs recoded', y='temp (deg C)') +
 #   final_theme +
@@ -160,15 +172,15 @@ buoy_therm_vert_L1 <- L1_2013 %>%
 
 L1_2013 <- L1_2013 %>% 
   mutate_at(vars(therm),
-            funs(case_when(datetime<as.POSIXct('2013-07-25 10:00', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument<as.POSIXct('2013-07-25 10:00', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .)))
 buoy_therm_vert_L1_b <- L1_2013 %>% 
-  select(datetime, therm) %>% 
-  gather(variable, value, -datetime) %>% 
+  select(datetime_instrument, therm) %>% 
+  gather(variable, value, -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(therm)))
 
-# ggplot(subset(buoy_therm_vert_L1_b, subset=(datetime>=as.POSIXct('2013-07-01', tz='EST') & datetime<as.POSIXct('2013-08-01', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1_b, subset=(datetime_instrument>=as.POSIXct('2013-07-01', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-08-01', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'July 2013 clean', y='temp (deg C)') +
 #   final_theme +
@@ -177,8 +189,8 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 #                               "#a5b8f3", "#00664b", "#00e639", "#8d840c", "#d4c711", 
 #                               "#f5ee89", "#005180", "#0081cc"))
 # 
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-08-01', tz='EST') & datetime<as.POSIXct('2013-09-01', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-08-01', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-09-01', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Aug 2013 thermister data - NAs recoded', y='temp (deg C)') +
 #   final_theme +
@@ -188,8 +200,8 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 #                               "#f5ee89", "#005180", "#0081cc"))
 # 
 # # Aug 15 buoy visit
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-08-15', tz='EST') & datetime<as.POSIXct('2013-08-16', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-08-15', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-08-16', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Aug 2013 thermister data - NAs recoded', y='temp (deg C)') +
 #   final_theme +
@@ -198,8 +210,8 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 #                               "#a5b8f3", "#00664b", "#00e639", "#8d840c", "#d4c711", 
 #                               "#f5ee89", "#005180", "#0081cc"))
 # # Aug 30 buoy visit
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-08-30', tz='EST') & datetime<as.POSIXct('2013-08-31', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-08-30', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-08-31', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Aug 2013 thermister data - NAs recoded', y='temp (deg C)') +
 #   final_theme +
@@ -210,18 +222,18 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 
 L1_2013 <- L1_2013 %>% 
   mutate_at(vars(therm),
-            funs(case_when(datetime>=as.POSIXct("2013-08-15 11:20:00", tz='EST') &
-                             datetime<as.POSIXct("2013-08-15 11:40:00", tz='EST') ~ NA_real_,
-                           datetime>=as.POSIXct("2013-08-30 8:50", tz='EST') &
-                             datetime<as.POSIXct("2013-08-30 11:10", tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct("2013-08-15 11:20:00", tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct("2013-08-15 11:40:00", tz='Etc/GMT+4') ~ NA_real_,
+                           datetime_instrument>=as.POSIXct("2013-08-30 8:50", tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct("2013-08-30 11:10", tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .)))
 buoy_therm_vert_L1_b <- L1_2013 %>% 
-  select(datetime, therm) %>% 
-  gather(variable, value, -datetime) %>% 
+  select(datetime_instrument, therm) %>% 
+  gather(variable, value, -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(therm)))
 
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-09-01', tz='EST') & datetime<as.POSIXct('2013-10-01', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-09-01', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-10-01', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Sept 2013 clean', y='temp (deg C)') +
 #   final_theme +
@@ -230,8 +242,8 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 #                               "#a5b8f3", "#00664b", "#00e639", "#8d840c", "#d4c711", 
 #                               "#f5ee89", "#005180", "#0081cc"))
 # 
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-10-01', tz='EST') & datetime<as.POSIXct('2013-11-01', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-10-01', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-11-01', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Oct 2013 NAs recoded', y='temp (deg C)') +
 #   final_theme +
@@ -241,8 +253,8 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 #                               "#f5ee89", "#005180", "#0081cc"))
 # 
 # # Oct 4 buoy visit
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-10-04', tz='EST') & datetime<as.POSIXct('2013-10-05', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-10-04', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-10-05', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Oct 2013 buoy visit', y='temp (deg C)') +
 #   final_theme +
@@ -252,8 +264,8 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 #                               "#f5ee89", "#005180", "#0081cc"))
 # 
 # # Oct 18 buoy visit
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-10-18', tz='EST') & datetime<as.POSIXct('2013-10-19', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-10-18', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-10-19', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Oct 2013 buoy visit', y='temp (deg C)') +
 #   final_theme +
@@ -264,18 +276,18 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 
 L1_2013 <- L1_2013 %>% 
   mutate_at(vars(therm),
-            funs(case_when(datetime>=as.POSIXct("2013-10-04 6:50", tz='EST') &
-                             datetime<as.POSIXct("2013-10-04 7:10", tz='EST') ~ NA_real_,
-                           datetime>=as.POSIXct("2013-10-18 7:50", tz='EST') &
-                             datetime<as.POSIXct("2013-10-18 8:10", tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct("2013-10-04 6:50", tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct("2013-10-04 7:10", tz='Etc/GMT+4') ~ NA_real_,
+                           datetime_instrument>=as.POSIXct("2013-10-18 7:50", tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct("2013-10-18 8:10", tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .)))
 buoy_therm_vert_L1_b <- L1_2013 %>% 
-  select(datetime, therm) %>% 
-  gather(variable, value, -datetime) %>% 
+  select(datetime_instrument, therm) %>% 
+  gather(variable, value, -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(therm)))
 
-# ggplot(subset(buoy_therm_vert_L1_b, subset=(datetime>=as.POSIXct('2013-10-01', tz='EST') & datetime<as.POSIXct('2013-11-01', tz='EST'))), 
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1_b, subset=(datetime_instrument>=as.POSIXct('2013-10-01', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-11-01', tz='Etc/GMT+4'))), 
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Oct 2013 clean', y='temp (deg C)') +
 #   final_theme +
@@ -284,8 +296,8 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 #                               "#a5b8f3", "#00664b", "#00e639", "#8d840c", "#d4c711", 
 #                               "#f5ee89", "#005180", "#0081cc"))
 # 
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-11-01', tz='EST') & datetime<as.POSIXct('2013-12-01', tz='EST'))),
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-11-01', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-12-01', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Nov 2013 NAs recoded', y='temp (deg C)') +
 #   final_theme +
@@ -295,8 +307,8 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 #                               "#f5ee89", "#005180", "#0081cc"))
 # 
 # #buoy removed Nov 21
-# ggplot(subset(buoy_therm_vert_L1, subset=(datetime>=as.POSIXct('2013-11-21', tz='EST') & datetime<as.POSIXct('2013-11-22', tz='EST'))),
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-11-21', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-11-22', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Nov 2013 NAs recoded', y='temp (deg C)') +
 #   final_theme +
@@ -307,15 +319,15 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 
 L1_2013 <- L1_2013 %>% 
   mutate_at(vars(therm),
-            funs(case_when(datetime>=as.POSIXct("2013-11-21 8:00", tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct("2013-11-21 8:00", tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .)))
 buoy_therm_vert_L1_b <- L1_2013 %>% 
-  select(datetime, therm) %>% 
-  gather(variable, value, -datetime) %>% 
+  select(datetime_instrument, therm) %>% 
+  gather(variable, value, -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(therm)))
 
-# ggplot(subset(buoy_therm_vert_L1_b, subset=(datetime>=as.POSIXct('2013-11-01', tz='EST') & datetime<as.POSIXct('2013-12-01', tz='EST'))),
-#        aes(x=datetime, y=value, color=variable)) +
+# ggplot(subset(buoy_therm_vert_L1_b, subset=(datetime_instrument>=as.POSIXct('2013-11-01', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-12-01', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = 'Nov 2013 clean', y='temp (deg C)') +
 #   final_theme +
@@ -325,7 +337,7 @@ buoy_therm_vert_L1_b <- L1_2013 %>%
 #                               "#f5ee89", "#005180", "#0081cc"))
 # 
 # ggplot(buoy_therm_vert_L1_b,
-#        aes(x=datetime, y=value, color=variable)) +
+#        aes(x=datetime_instrument, y=value, color=variable)) +
 #   geom_point() +
 #   labs(title = '2013 thermisters clean', y='temp (deg C)') +
 #   final_theme +
@@ -338,8 +350,8 @@ rm(buoy_therm_vert_L1, buoy_therm_vert_L1_b)
 
 #DO
 buoy_do_vert_L1 <- L1_2013 %>% 
-  select(datetime, do) %>% 
-  gather(variable, value, -datetime) %>% 
+  select(datetime_instrument, do) %>% 
+  gather(variable, value, -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(do)),
          depth = case_when(variable == 'do_ppm_1m' ~ 1,
                            variable == 'dotemp_C_1m' ~ 1,
@@ -360,16 +372,16 @@ buoy_do_vert_L1 <- L1_2013 %>%
                             variable == 'dotemp_C_32m' ~ 'do_temp',
                             variable == 'do_sat_pct_32m' ~ 'do_sat'))
 
-# ggplot(buoy_do_vert_L1, aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(buoy_do_vert_L1, aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = '2013 do data - NAs recoded') +
 #   final_theme +
 #   scale_color_colorblind()
 # 
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-07-01', tz='EST') &
-#                                          datetime < as.POSIXct('2013-08-01', tz='EST'))),
-#               aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-07-01', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-08-01', tz='Etc/GMT+4'))),
+#               aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Jul 2013 do data - NAs recoded') +
@@ -378,9 +390,9 @@ buoy_do_vert_L1 <- L1_2013 %>%
 #   scale_color_colorblind()
 # 
 # #buoy deployment July 25
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-07-25', tz='EST') &
-#                                          datetime < as.POSIXct('2013-07-26', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-07-25', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-07-26', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Jul 2013 buoy deployed') +
@@ -390,14 +402,14 @@ buoy_do_vert_L1 <- L1_2013 %>%
 
 L1_2013 <- L1_2013 %>% 
   mutate_at(vars(dotemp_C_1m, dotemp_C_14.5m, dotemp_C_32m),
-            funs(case_when(datetime<as.POSIXct('2013-07-25 9:50', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument<as.POSIXct('2013-07-25 9:50', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .))) %>% 
   mutate_at(vars(do_ppm_1m, do_ppm_14.5m, do_ppm_32m, do_sat_pct_1m, do_sat_pct_14.5m, do_sat_pct_32m),
-            funs(case_when(datetime<as.POSIXct('2013-07-25 14:00', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument<as.POSIXct('2013-07-25 14:00', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .)))
 buoy_do_vert_L1_b <- L1_2013 %>% 
-  select(datetime, do) %>% 
-  gather(variable, value, -datetime) %>% 
+  select(datetime_instrument, do) %>% 
+  gather(variable, value, -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(do)),
          depth = case_when(variable == 'do_ppm_1m' ~ 1,
                            variable == 'dotemp_C_1m' ~ 1,
@@ -418,9 +430,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
                             variable == 'dotemp_C_32m' ~ 'do_temp',
                             variable == 'do_sat_pct_32m' ~ 'do_sat'))
 
-# ggplot(subset(buoy_do_vert_L1_b, subset=(datetime >=as.POSIXct('2013-07-01', tz='EST') &
-#                                          datetime < as.POSIXct('2013-08-01', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1_b, subset=(datetime_instrument >=as.POSIXct('2013-07-01', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-08-01', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Jul 2013 clean') +
@@ -428,9 +440,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 #   scale_x_datetime(date_minor_breaks = '1 day') +
 #   scale_color_colorblind()
 # 
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-08-01', tz='EST') &
-#                                          datetime < as.POSIXct('2013-09-01', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-08-01', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-09-01', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Aug 2013 do data - NAs recoded') +
@@ -439,9 +451,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 #   scale_color_colorblind()
 # 
 # # Aug 15 buoy visit
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-08-15', tz='EST') &
-#                                          datetime < as.POSIXct('2013-08-16', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-08-15', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-08-16', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Aug 2013 buoy visit') +
@@ -449,9 +461,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 #   scale_x_datetime(date_minor_breaks = '1 hour') +
 #   scale_color_colorblind()
 # # Aug 30 buoy visit
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-08-30', tz='EST') &
-#                                          datetime < as.POSIXct('2013-08-31', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-08-30', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-08-31', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Aug 2013 buoy visit') +
@@ -461,38 +473,38 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 
 L1_2013 <- L1_2013 %>%
   mutate_at(vars(dotemp_C_1m, do_ppm_1m, do_sat_pct_1m, dotemp_C_14.5m, do_ppm_14.5m, do_sat_pct_14.5m),
-            funs(case_when(datetime>=as.POSIXct('2013-08-15 8:40', tz='EST') &
-                             datetime<as.POSIXct('2013-08-15 10:00', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-08-15 8:40', tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct('2013-08-15 10:00', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .))) %>%
   mutate_at(vars(dotemp_C_32m, do_ppm_32m, do_sat_pct_32m),
-            funs(case_when(datetime==as.POSIXct('2013-08-15 11:20', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument==as.POSIXct('2013-08-15 11:20', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .))) %>%
   mutate_at(vars(dotemp_C_1m, do_ppm_1m, do_sat_pct_1m, dotemp_C_14.5m, do_ppm_14.5m, do_sat_pct_14.5m),
-            funs(case_when(datetime>=as.POSIXct('2013-08-15 10:00', tz='EST') &
-                             datetime<as.POSIXct('2013-08-15 14:00', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-08-15 10:00', tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct('2013-08-15 14:00', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .))) %>%
   mutate_at(vars(dotemp_C_1m, do_ppm_1m, do_sat_pct_1m, dotemp_C_14.5m, do_ppm_14.5m, do_sat_pct_14.5m, dotemp_C_32m, do_ppm_32m, do_sat_pct_32m),
-            funs(case_when(datetime>=as.POSIXct('2013-08-30 8:39', tz='EST') &
-                             datetime<as.POSIXct('2013-08-30 9:50', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-08-30 8:39', tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct('2013-08-30 9:50', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .))) %>% 
-  mutate(dotemp_C_32m = case_when(datetime>=as.POSIXct('2013-08-30 9:50', tz='EST') &
-                                    datetime<as.POSIXct('2013-08-30 11:10', tz='EST') ~ NA_real_,
+  mutate(dotemp_C_32m = case_when(datetime_instrument>=as.POSIXct('2013-08-30 9:50', tz='Etc/GMT+4') &
+                                    datetime_instrument<as.POSIXct('2013-08-30 11:10', tz='Etc/GMT+4') ~ NA_real_,
                                   TRUE ~ dotemp_C_32m)) %>% 
   mutate_at(vars(do_ppm_1m, do_ppm_14.5m, do_ppm_32m, do_sat_pct_1m, do_sat_pct_14.5m, do_sat_pct_32m),
-            funs(case_when(datetime>=as.POSIXct('2013-08-30 8:40', tz='EST') &
-                             datetime<as.POSIXct('2013-08-30 9:50', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-08-30 8:40', tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct('2013-08-30 9:50', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .))) %>% 
   mutate_at(vars(do_ppm_14.5m, do_sat_pct_14.5m, do_ppm_32m, do_sat_pct_32m),
-            funs(case_when(datetime>=as.POSIXct('2013-08-30 9:50', tz='EST') &
-                             datetime<as.POSIXct('2013-08-30 12:30', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-08-30 9:50', tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct('2013-08-30 12:30', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .))) %>% 
   mutate_at(vars(do_ppm_14.5m, do_sat_pct_14.5m),
-            funs(case_when(datetime>=as.POSIXct('2013-08-30 12:30', tz='EST') &
-                             datetime<as.POSIXct('2013-08-30 13:40', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-08-30 12:30', tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct('2013-08-30 13:40', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .)))
 buoy_do_vert_L1_b <- L1_2013 %>% 
-  select(datetime, do) %>% 
-  gather(variable, value, -datetime) %>% 
+  select(datetime_instrument, do) %>% 
+  gather(variable, value, -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(do)),
          depth = case_when(variable == 'do_ppm_1m' ~ 1,
                            variable == 'dotemp_C_1m' ~ 1,
@@ -513,9 +525,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
                             variable == 'dotemp_C_32m' ~ 'do_temp',
                             variable == 'do_sat_pct_32m' ~ 'do_sat'))
 
-# ggplot(subset(buoy_do_vert_L1_b, subset=(datetime >=as.POSIXct('2013-08-01', tz='EST') &
-#                                          datetime < as.POSIXct('2013-09-01', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1_b, subset=(datetime_instrument >=as.POSIXct('2013-08-01', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-09-01', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Aug 2013 clean') +
@@ -523,9 +535,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 #   scale_x_datetime(date_minor_breaks = '1 day') +
 #   scale_color_colorblind()
 # 
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-09-01', tz='EST') &
-#                                          datetime < as.POSIXct('2013-10-01', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-09-01', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-10-01', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Sept 2013 do data - NAs recoded') +
@@ -533,9 +545,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 #   scale_x_datetime(date_minor_breaks = '1 day') +
 #   scale_color_colorblind()
 # 
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-10-01', tz='EST') &
-#                                          datetime < as.POSIXct('2013-11-01', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-10-01', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-11-01', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Oct 2013 do data - NAs recoded') +
@@ -544,9 +556,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 #   scale_color_colorblind()
 # 
 # #Oct 4 buoy visit
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-10-04', tz='EST') &
-#                                          datetime < as.POSIXct('2013-10-05', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-10-04', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-10-05', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Oct 2013 buoy visit') +
@@ -555,9 +567,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 #   scale_color_colorblind()
 # 
 # #Oct 18 buoy visit
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-10-18', tz='EST') &
-#                                          datetime < as.POSIXct('2013-10-19', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-10-18', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-10-19', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Oct 2013 buoy visit') +
@@ -567,24 +579,24 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 
 L1_2013 <- L1_2013 %>%
   mutate_at(vars(dotemp_C_1m, do_ppm_1m, do_sat_pct_1m, dotemp_C_14.5m, dotemp_C_32m),
-            funs(case_when(datetime>=as.POSIXct('2013-10-04 6:40', tz='EST') &
-                             datetime<as.POSIXct('2013-10-04 7:10', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-10-04 6:40', tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct('2013-10-04 7:10', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .))) %>% 
   mutate_at(vars(do_ppm_14.5m, do_sat_pct_14.5m, do_ppm_32m, do_sat_pct_32m),
-            funs(case_when(datetime>=as.POSIXct('2013-10-04 6:50', tz='EST') &
-                             datetime<as.POSIXct('2013-10-04 8:40', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-10-04 6:50', tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct('2013-10-04 8:40', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .))) %>% 
   mutate_at(vars(do_ppm_14.5m, do_sat_pct_14.5m),
-            funs(case_when(datetime>=as.POSIXct('2013-10-04 8:40', tz='EST') &
-                             datetime<as.POSIXct('2013-10-04 11:00', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-10-04 8:40', tz='Etc/GMT+4') &
+                             datetime_instrument<as.POSIXct('2013-10-04 11:00', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .))) %>% 
   mutate_at(vars(dotemp_C_1m, dotemp_C_14.5m, dotemp_C_32m),
-            funs(case_when(datetime>=as.POSIXct('2013-10-18 7:40', tz='EST') &
-                           datetime<as.POSIXct('2013-10-18 8:10', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-10-18 7:40', tz='Etc/GMT+4') &
+                           datetime_instrument<as.POSIXct('2013-10-18 8:10', tz='Etc/GMT+4') ~ NA_real_,
                          TRUE ~ .)))
 buoy_do_vert_L1_b <- L1_2013 %>% 
-  select(datetime, do) %>% 
-  gather(variable, value, -datetime) %>% 
+  select(datetime_instrument, do) %>% 
+  gather(variable, value, -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(do)),
          depth = case_when(variable == 'do_ppm_1m' ~ 1,
                            variable == 'dotemp_C_1m' ~ 1,
@@ -605,9 +617,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
                             variable == 'dotemp_C_32m' ~ 'do_temp',
                             variable == 'do_sat_pct_32m' ~ 'do_sat'))
 
-# ggplot(subset(buoy_do_vert_L1_b, subset=(datetime >=as.POSIXct('2013-10-01', tz='EST') &
-#                                          datetime < as.POSIXct('2013-11-01', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1_b, subset=(datetime_instrument >=as.POSIXct('2013-10-01', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-11-01', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Oct 2013 clean') +
@@ -615,9 +627,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 #   scale_x_datetime(date_minor_breaks = '1 day') +
 #   scale_color_colorblind()
 # 
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-11-01', tz='EST') &
-#                                          datetime < as.POSIXct('2013-12-01', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-11-01', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-12-01', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Nov 2013 do data - NAs recoded') +
@@ -626,9 +638,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 #   scale_color_colorblind()
 # 
 # # do sensor error Nov 21 and beyond
-# ggplot(subset(buoy_do_vert_L1, subset=(datetime >=as.POSIXct('2013-11-21', tz='EST') &
-#                                          datetime < as.POSIXct('2013-11-22', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2013-11-21', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-11-22', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Sept 2013 do data - NAs recoded') +
@@ -638,11 +650,11 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 
 L1_2013 <- L1_2013 %>%
   mutate_at(vars(do),
-            funs(case_when(datetime>=as.POSIXct('2013-11-21 8:00', tz='EST') ~ NA_real_,
+            funs(case_when(datetime_instrument>=as.POSIXct('2013-11-21 8:00', tz='Etc/GMT+4') ~ NA_real_,
                            TRUE ~ .)))
 buoy_do_vert_L1_b <- L1_2013 %>% 
-  select(datetime, do) %>% 
-  gather(variable, value, -datetime) %>% 
+  select(datetime_instrument, do) %>% 
+  gather(variable, value, -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(do)),
          depth = case_when(variable == 'do_ppm_1m' ~ 1,
                            variable == 'dotemp_C_1m' ~ 1,
@@ -663,9 +675,9 @@ buoy_do_vert_L1_b <- L1_2013 %>%
                             variable == 'dotemp_C_32m' ~ 'do_temp',
                             variable == 'do_sat_pct_32m' ~ 'do_sat'))
 
-# ggplot(subset(buoy_do_vert_L1_b, subset=(datetime >=as.POSIXct('2013-11-01', tz='EST') &
-#                                          datetime < as.POSIXct('2013-12-01', tz='EST'))),
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+# ggplot(subset(buoy_do_vert_L1_b, subset=(datetime_instrument >=as.POSIXct('2013-11-01', tz='Etc/GMT+4') &
+#                                          datetime_instrument < as.POSIXct('2013-12-01', tz='Etc/GMT+4'))),
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = 'Nov 2013 clean') +
@@ -674,7 +686,7 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 #   scale_color_colorblind()
 # 
 # ggplot(buoy_do_vert_L1_b,
-#        aes(x=datetime, y=value, color=as.factor(depth))) +
+#        aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
 #   geom_point() +
 #   facet_grid(sensor ~ ., scales='free_y') +
 #   labs(title = '2013 do clean') +
@@ -684,4 +696,8 @@ buoy_do_vert_L1_b <- L1_2013 %>%
 
 rm(buoy_do_vert_L1, buoy_do_vert_L1_b, L0_2013_vert, L1_2013_vert)
 
-# write_csv(L1_2013, 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013.csv')
+L1_2013 %>% 
+  mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'EST')) %>% 
+  mutate(datetime_instrument = as.character(datetime_instrument),
+         datetime_EST = as.character(datetime_EST)) %>% 
+  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013.csv')
