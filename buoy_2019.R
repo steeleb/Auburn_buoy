@@ -710,6 +710,7 @@ L1_2019 <- L1_2019 %>%
   mutate_at(vars(do),
             funs(case_when(datetime>=as.POSIXct('2019-11-17 9:40', tz='UTC') ~ NA_real_,
                            TRUE ~ .)))
+
 buoy_do_vert_L1 <- L1_2019 %>% 
   select(datetime, do) %>% 
   gather(variable, value, -datetime) %>% 
