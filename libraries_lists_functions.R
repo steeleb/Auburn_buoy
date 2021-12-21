@@ -51,8 +51,11 @@ met2020 <- c('datetime', 'bat_v', 'wind_dir_deg', 'wind_sp_mps', 'ave_wind_sp_mp
 
 #lists for cleaning
 do <- c('do_ppm_1m', 'dotemp_C_1m', 'do_sat_pct_1m', 
-        'dotemp_C_14.5m', 'do_sat_pct_14.5m', 'do_ppm_14.5m', 'do_ppm_32m', 'dotemp_C_32m', 
-        'do_sat_pct_32m')
+        'dotemp_C_14.5m', 'do_sat_pct_14.5m', 'do_ppm_14.5m', 
+        'do_ppm_32m', 'dotemp_C_32m', 'do_sat_pct_32m')
+do1 <- c('do_ppm_1m', 'dotemp_C_1m', 'do_sat_pct_1m')
+do14 <- c('dotemp_C_14.5m', 'do_sat_pct_14.5m', 'do_ppm_14.5m')
+do32 <- c('do_ppm_32m', 'dotemp_C_32m', 'do_sat_pct_32m')
 therm <- c('temp_C_0.5m', 'temp_C_1m', 'temp_C_2m', 'temp_C_4m', 
            'temp_C_6m', 'temp_C_8m', 'temp_C_10m', 'temp_C_12m', 'temp_C_16m', 
            'temp_C_22m', 'temp_C_30m')
