@@ -696,6 +696,6 @@ L1_2013 <- L1_2013 %>%
 
 L1_2013 %>% 
   mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'EST')) %>% 
-  mutate(datetime_instrument = as.character(datetime_instrument),
-         datetime_EST = as.character(datetime_EST)) %>% 
+  mutate(datetime_EST = as.character(datetime_EST)) %>% 
+  select(-datetime_instrument) %>% 
   write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013.csv')
