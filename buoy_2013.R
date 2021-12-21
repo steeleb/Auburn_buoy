@@ -169,7 +169,6 @@ for (i in 1: length(monthlist)){
   ggsave(file.path(figdir, filename), device = 'png')
 }
 
-
 # Jul 25 - buoy deployed
 ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2013-07-25', tz='Etc/GMT+4') & datetime_instrument<as.POSIXct('2013-07-26', tz='Etc/GMT+4'))),
        aes(x=datetime_instrument, y=value, color=variable)) +
@@ -674,6 +673,24 @@ for (i in 1: length(monthlist)){
 }
 
 rm(buoy_do_vert_L1)
+
+# add flags ----
+L1_2013 <- L1_2013 %>% 
+  mutate(flag_do1 = case_when(datetime_instrument == aug15do ~ 'w', 
+                              datetime_instrument == aug30do ~ 'c',
+                              datetime_instrument == oct4do  ~ 'w',
+                              datetime_instrument == oct18do ~ 'w',
+                              TRUE ~ ''),
+         flag_do14 = case_when(datetime_instrument == aug15do ~ 'w', 
+                              datetime_instrument == aug30do ~ 'c',
+                              datetime_instrument == oct4do  ~ 'w',
+                              datetime_instrument == oct18do ~ 'w',
+                              TRUE ~ ''),
+         flag_do32 = case_when(datetime_instrument == aug15do ~ 'w', 
+                              datetime_instrument == aug30do ~ 'c',
+                              datetime_instrument == oct4do  ~ 'w',
+                              datetime_instrument == oct18do ~ 'w',
+                              TRUE ~ ''))
 
 #save file ----
 
