@@ -1,18 +1,16 @@
-#######################################################
 # File: buoy_2021.R                                   #
 # Written by: B. Steele (steeleb@caryinstitute.org)   #
 # File created: 30Nov2021                             #
 # Purpose: to create a L1 dataset from the raw 2021   #
 #         Auburn buoy data                            #
 # R version: 3.6.1                                    #
-#######################################################
 
 # read in libraries, lists and functions
 source('libraries_lists_functions.R')
 
 #point to directories
 data_dir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/raw_data/buoy/raw_files/2021/'
-fig_dir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/programs/Auburn_buoy_data_cleaning/2021 cleaning graphs/'
+fig_dir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/programs/Auburn_buoy_GH/2021 cleaning graphs/'
 dump_dir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/'
 visit_dir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/raw_data/visit notes/'
 
@@ -20,6 +18,7 @@ visit_dir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/raw_data/visit notes
 buoy_tz = 'Etc/GMT+4'
 visit_tz = 'America/New_York'
 
+# read in buoy data ----
 #data from this year come in 3 parts; there is some overlap.
 L0_2021a <- read_csv(file.path(data_dir, 'April-June_AuburnBuoy_2021.csv'),
                     col_names = varnames2021,
@@ -63,6 +62,7 @@ dst_check <- L0_2021 %>%
   summarize(n_obs = length(datetime_instrument))
 view(dst_check)
 #DST in 2021: 03/14/21; 11/07/21 look at those dates
+#looks good
 
 #read in visit data
 visit <- read_xlsx(file.path(visit_dir, '2021_visit_summary.xlsx'),
@@ -71,7 +71,7 @@ visit <- read_xlsx(file.path(visit_dir, '2021_visit_summary.xlsx'),
                    col_types = c('date', 'text', 'numeric', 'date', 'date', 'text', 'numeric', 'text', 'text')) %>% 
   filter(site == 8)
 
-#drop conductivity probe visit info
+#drop conductivity probe visit info; not part of the buoy
 visit <- visit %>% 
   filter(!grepl('cond', sensor_type))
 
@@ -143,7 +143,8 @@ L1_2021 <- L1_2021 %>%
   mutate_at(vars(all_of(therm), all_of(weather), all_of(do)),
             ~ case_when(datetime_instrument >= removal ~ NA_real_,
                         datetime_instrument < deployment ~ NA_real_,
-                        TRUE ~ .))
+                        TRUE ~ .)) %>% 
+  filter(datetime_instrument < removal & datetime_instrument > deployment)
 
 ####L1 Cleaning####
 
@@ -348,17 +349,20 @@ L1_2021$rain_cm_hr = NA_real_
 L1_2021 <- L1_2021 %>% 
   rownames_to_column()
 
+#need to gap fill daily_cum_rain_cm
+L1_2021$GF_cum_rain_cm = zoo::na.approx(L1_2021$daily_cum_rain_cm, method = 'linear', maxgap = 6)
+
 for (z in 1:length(daylist)) {
   df <- L1_2021 %>% 
     filter(format(L1_2021$datetime_instrument, '%Y-%m-%d')==daylist[z]) %>% 
-    select(rowname, daily_cum_rain_cm)
-    if(length(na.omit(df$daily_cum_rain_cm))>0){
+    select(rowname, GF_cum_rain_cm)
+    if(length(na.omit(df$GF_cum_rain_cm))>0){
       for (x in 1:nrow(df)){
         if (x == 1) {
           row_value = df$rowname[x]
-          L1_2021$rain_cm_hr[L1_2021$rowname == row_value] = df$daily_cum_rain_cm[x]
+          L1_2021$rain_cm_hr[L1_2021$rowname == row_value] = df$GF_cum_rain_cm[x]
           } else {
-            rain = df$daily_cum_rain_cm[x] - df$daily_cum_rain_cm[x-1]
+            rain = df$GF_cum_rain_cm[x] - df$GF_cum_rain_cm[x-1]
             row_value = df$rowname[x]
             L1_2021$rain_cm_hr[L1_2021$rowname == row_value] = rain
           }
@@ -368,6 +372,11 @@ for (z in 1:length(daylist)) {
       message('instrument offline')
     }
 }
+
+# recode negative rain to na
+L1_2021 <- L1_2021 %>% 
+  mutate(rain_cm_hr = case_when(rain_cm_hr < 0 ~ NA_real_,
+                                TRUE ~ rain_cm_hr))
 
 #need to make sure this is working correctly; check daily total with total of rain_cm_hr
 rain <- L1_2021 %>%
@@ -380,14 +389,133 @@ rain <- L1_2021 %>%
   group_by(date) %>% 
   summarise(rain_cum_total = max(daily_cum_rain_cm, na.rm = T),
          rain_total = sum(na.omit(rain_cm_hr)))  %>% 
-  filter(rain_cum_total != rain_total)
+  filter(rain_cum_total != rain_total) %>% 
+  mutate(flag_rain = 'm') %>% 
+  select(date, flag_rain)
 
-
-
-
+# these are malfunction dates, flag and recode rain data for these dates; drop cumulative rain data
+L1_2021 <- L1_2021 %>% 
+  mutate(date = format(datetime_instrument, '%Y-%m-%d')) %>% 
+  left_join(., rain) %>% 
+  mutate(rain_cm_hr = case_when(flag_rain == 'm' ~ NA_real_,
+                                TRUE ~ rain_cm_hr)) %>% 
+  select(-daily_cum_rain_cm, -GF_cum_rain_cm)
+  
+#reorient and look at monthly graphs
 buoy_weather_vert_L1 <- L1_2021 %>% 
-  select(datetime_instrument, all_of(weather)) 
+  select(datetime_instrument, all_of(weather_proc)) %>% 
+  pivot_longer(names_to = 'variable',
+               values_to = 'value',
+               -datetime_instrument) %>% 
+  mutate(month = format(datetime_instrument, '%m'))
 
+for (i in 1: length(monthlist)){
+  df = buoy_weather_vert_L1 %>% 
+    filter(month == monthlist[i])
+  plot <- ggplot(df, aes(x=datetime_instrument, y=value)) +
+    geom_point() +
+    facet_grid(variable ~ ., scales = 'free_y') +
+    labs(title = paste0('2021-', monthlist[i], ' met data - NAs recoded')) +
+    final_theme +
+    scale_x_datetime(date_minor_breaks = '1 day') 
+  print(plot)
+  filename = paste0('2021-', monthlist[i], '_L0p5_met.png')
+  ggsave(file.path(fig_dir, filename), device = 'png')
+}
+
+# wind malfunctioning through early 2021-04-21
+look_date <- as.Date('2021-04-21')
+buoy_weather_vert_L1 %>% 
+  filter(datetime_instrument >= look_date - days(1) & 
+           datetime_instrument < look_date + days(1)) %>% 
+  ggplot(., aes(x=datetime_instrument, y=value)) +
+  geom_point() +
+  facet_grid(variable ~ ., scales = 'free_y') +
+  final_theme +
+  scale_x_datetime(date_minor_breaks = '1 hour') 
+
+apr21 <- as.POSIXct('2021-04-21 1:20', tz = buoy_tz)
+
+L1_2021 <- L1_2021 %>% 
+  mutate(flag_wind = case_when(datetime_instrument <= apr21 & !is.na(wind_sp_mps) ~ 'e',
+                               TRUE ~ '')) %>% 
+  mutate_at(vars(all_of(wind)),
+            ~ case_when(datetime_instrument <= apr21 ~ NA_real_,
+                        TRUE ~ .))
+
+#reorient and look at monthly graphs
+buoy_weather_vert_L1 <- L1_2021 %>% 
+  select(datetime_instrument, all_of(weather_proc)) %>% 
+  pivot_longer(names_to = 'variable',
+               values_to = 'value',
+               -datetime_instrument) %>% 
+  mutate(month = format(datetime_instrument, '%m'))
+
+buoy_weather_vert_L1 %>% 
+  filter(datetime_instrument >= look_date - days(1) & 
+           datetime_instrument < look_date + days(1)) %>% 
+  ggplot(., aes(x=datetime_instrument, y=value)) +
+  geom_point() +
+  facet_grid(variable ~ ., scales = 'free_y') +
+  final_theme +
+  scale_x_datetime(date_minor_breaks = '1 hour') 
+
+# wind malfunctioning 2021-05-05
+look_date <- as.Date('2021-05-05')
+
+buoy_weather_vert_L1 %>% 
+  filter(datetime_instrument >= look_date & 
+           datetime_instrument < look_date + days(1)) %>% 
+  ggplot(., aes(x=datetime_instrument, y=value)) +
+  geom_point() +
+  facet_grid(variable ~ ., scales = 'free_y') +
+  final_theme +
+  scale_x_datetime(date_minor_breaks = '1 hour') 
+
+L1_2021 <- L1_2021 %>% 
+  mutate(flag_wind = case_when(datetime_instrument >= look_date & 
+                                 datetime_instrument < look_date + days(1) &
+                                 (wind_dir_deg == 0 | ave_wind_sp_mps == 0) ~ 'e',
+                               TRUE ~ flag_wind)) %>% 
+  mutate_at(vars(all_of(wind)),
+            ~ case_when(datetime_instrument >= look_date & 
+                          datetime_instrument < look_date + days(1) &
+                          (wind_dir_deg == 0 | ave_wind_sp_mps == 0) ~ NA_real_,
+                        TRUE ~ .))
+
+#reorient and look at monthly graphs
+buoy_weather_vert_L1 <- L1_2021 %>% 
+  select(datetime_instrument, all_of(weather_proc)) %>% 
+  pivot_longer(names_to = 'variable',
+               values_to = 'value',
+               -datetime_instrument) %>% 
+  mutate(month = format(datetime_instrument, '%m'))
+
+buoy_weather_vert_L1 %>% 
+  filter(datetime_instrument >= look_date  & 
+           datetime_instrument < look_date + days(1)) %>% 
+  ggplot(., aes(x=datetime_instrument, y=value)) +
+  geom_point() +
+  facet_grid(variable ~ ., scales = 'free_y') +
+  final_theme +
+  scale_x_datetime(date_minor_breaks = '1 hour') 
+
+for (i in 1: length(monthlist)){
+  df = buoy_weather_vert_L1 %>% 
+    filter(month == monthlist[i])
+  plot <- ggplot(df, aes(x=datetime_instrument, y=value)) +
+    geom_point() +
+    facet_grid(variable ~ ., scales = 'free_y') +
+    labs(title = paste0('2021-', monthlist[i], ' met data - initial QAQC')) +
+    final_theme +
+    scale_x_datetime(date_minor_breaks = '1 day') 
+  print(plot)
+  filename = paste0('2021-', monthlist[i], '_L1_met.png')
+  ggsave(file.path(fig_dir, filename), device = 'png')
+}
+
+
+# save file -----
 
 L1_2021 %>% 
   mutate(datetime_EST = with_tz(datetime_instrument, tzone = buoy_tz)) %>% 
