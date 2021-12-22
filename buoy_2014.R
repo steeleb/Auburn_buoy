@@ -864,17 +864,28 @@ for (i in 1: length(monthlist)){
   ggsave(file.path(figdir, filename), device = 'png')
 }
 
-rm(buoy_do_vert_L1, buoy_do_vert_L1_b, L0_2014_vert, L1_2014_vert)
+rm(buoy_do_vert_L1, L1_2014_vert)
 
 #add flags ----
 L1_2014 <- L1_2014 %>% 
-  mutate_at(vars(flag_do1, flag_do14, flag_do32),
-            ~ case_when(datetime_instrument == jun19do ~ 'w',
+  mutate(flag_do1 =case_when(datetime_instrument == jun19do ~ 'w',
                               datetime_instrument == jul9do  ~ 'c',
                               datetime_instrument == jul30do ~ 'c', 
                               datetime_instrument == aug26do ~ 'c',
                               datetime_instrument == sept4do ~ 'c',
-                              TRUE ~ ''))
+                              TRUE ~ ''),
+         flag_do14 =case_when(datetime_instrument == jun19do ~ 'w',
+                             datetime_instrument == jul9do  ~ 'c',
+                             datetime_instrument == jul30do ~ 'c', 
+                             datetime_instrument == aug26do ~ 'c',
+                             datetime_instrument == sept4do ~ 'c',
+                             TRUE ~ ''),
+         flag_do32 =case_when(datetime_instrument == jun19do ~ 'w',
+                             datetime_instrument == jul9do  ~ 'c',
+                             datetime_instrument == jul30do ~ 'c', 
+                             datetime_instrument == aug26do ~ 'c',
+                             datetime_instrument == sept4do ~ 'c',
+                             TRUE ~ ''))
   
 # save file ----
 L1_2014 %>% 
