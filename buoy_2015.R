@@ -732,21 +732,34 @@ for (i in 1: length(monthlist)){
     scale_color_manual(values=c("#000000", "#999999", "#997300", "#ffbf00", "#173fb5", "#a5b8f3",
                                 "#00664b", "#00e639", "#8d840c", "#d4c711", "#f5ee89", "#005180", "#0081cc"))
   print(plot)
-    filename = paste0('2015-', monthlist[i], '_1_do.png')
+    filename = paste0('2015-', monthlist[i], '_L1_do.png')
   ggsave(file.path(figdir, filename), device = 'png')
 }
-
 
 rm(buoy_do_vert_L1, L0_2015_vert, L1_2015_vert)
 
 # add flags ----
+L1_2015 <- L1_2015 %>% 
+  mutate(flag_do1 =case_when(datetime_instrument == jun4do ~ 'w',
+                             datetime_instrument == jul2do ~ 'c',
+                             datetime_instrument == jul30do~ 'c',
+                             datetime_instrument == aug28do~ 'w',
+                             TRUE ~ ''),
+         flag_do14 =case_when(datetime_instrument == jun4do ~ 'w',
+                              datetime_instrument == jul2do ~ 'c',
+                              datetime_instrument == jul30do~ 'c',
+                              datetime_instrument == aug28do~ 'w',
+                              TRUE ~ ''),
+         flag_do32 =case_when(datetime_instrument == jul2 ~ 'c',
+                              datetime_instrument == jul30 ~ 'c',
+                              TRUE ~ ''))
 
 #save files ----
 
 L1_2015 %>% 
   mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'EST')) %>% 
-  mutate(datetime_instrument = as.character(datetime_instrument),
-         datetime_EST = as.character(datetime_EST)) %>% 
+  mutate(datetime_EST = as.character(datetime_EST)) %>% 
+  select(-datetime_instrument) %>% 
   write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2015.csv')
 
 
