@@ -78,7 +78,7 @@ L0_2017_vert <- L0_2017 %>%
 #recode NA values as NA
 L1_2017 <- L0_2017 %>% 
   mutate_at(vars(do_ppm_1m:temp_C_30m),
-            funs(case_when(. < -99999.9 ~ NA_real_, # for -99999.99 and -100000 - had to do it this way because there were issues with -99999.99
+            ~(case_when(. < -99999.9 ~ NA_real_, # for -99999.99 and -100000 - had to do it this way because there were issues with -99999.99
                            TRUE ~ .)))
 
 L1_2017_vert <- L1_2017 %>%
@@ -158,7 +158,6 @@ for (i in 1: length(monthlist)){
   filename = paste0('2017-', monthlist[i], '_L0p5_therm.png')
   ggsave(file.path(figdir, filename), device = 'png')
 }
-
 
 
 #May 24 - buoy deployed
@@ -310,13 +309,10 @@ for (i in 1: length(monthlist)){
   plot <- ggplot(df, aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
     geom_point() +
     facet_grid(sensor ~ ., scales='free_y') +
-    final_theme +
-    scale_color_colorblind()
-  labs(title = paste0('2017-', monthlist[i], ' do data - NAs recoded')) +
+    labs(title = paste0('2017-', monthlist[i], ' do data - NAs recoded')) +
     final_theme +
     scale_x_datetime(date_minor_breaks = '1 day') +
-    scale_color_manual(values=c("#000000", "#999999", "#997300", "#ffbf00", "#173fb5", "#a5b8f3",
-                                "#00664b", "#00e639", "#8d840c", "#d4c711", "#f5ee89", "#005180", "#0081cc"))
+    scale_color_colorblind()
   print(plot)
   filename = paste0('2017-', monthlist[i], '_L0p5_do.png')
   ggsave(file.path(figdir, filename), device = 'png')
@@ -556,13 +552,10 @@ for (i in 1: length(monthlist)){
   plot <- ggplot(df, aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
     geom_point() +
     facet_grid(sensor ~ ., scales='free_y') +
-    final_theme +
-    scale_color_colorblind()
-  labs(title = paste0('2017-', monthlist[i], ' do data - clean')) +
+    labs(title = paste0('2017-', monthlist[i], ' do data - clean')) +
     final_theme +
     scale_x_datetime(date_minor_breaks = '1 day') +
-    scale_color_manual(values=c("#000000", "#999999", "#997300", "#ffbf00", "#173fb5", "#a5b8f3",
-                                "#00664b", "#00e639", "#8d840c", "#d4c711", "#f5ee89", "#005180", "#0081cc"))
+    scale_color_colorblind()
   print(plot)
   filename = paste0('2017-', monthlist[i], '_L1_do.png')
   ggsave(file.path(figdir, filename), device = 'png')
@@ -578,7 +571,7 @@ L1_2017 <- L1_2017 %>%
                              datetime_instrument == jul14do ~ 'c',
                              datetime_instrument == jul19do ~ 'w',
                              datetime_instrument == aug24do ~ 'w',
-                             datetime_instrument == sep14do ~ 'w',
+                             datetime_instrument == sep14 ~ 'w',
                              TRUE ~ ''),
          flag_do14 =case_when(datetime_instrument == jun7do ~ 'w',
                               datetime_instrument == jun22do ~ 'w',
@@ -586,7 +579,7 @@ L1_2017 <- L1_2017 %>%
                               datetime_instrument == jul14do ~ 'c',
                               datetime_instrument == jul19do ~ 'w',
                               datetime_instrument == aug24do ~ 'w',
-                              datetime_instrument == sep14do ~ 'w',
+                              datetime_instrument == sep14 ~ 'w',
                               TRUE ~ ''),
          flag_do32 =case_when(datetime_instrument == jun7do ~ 'w',
                               datetime_instrument == jun22do ~ 'w',
@@ -594,7 +587,7 @@ L1_2017 <- L1_2017 %>%
                               datetime_instrument == jul14do ~ 'c',
                               datetime_instrument == jul19do ~ 'w',
                               datetime_instrument == aug24do ~ 'w',
-                              datetime_instrument == sep14do ~ 'w',
+                              datetime_instrument == sep14 ~ 'w',
                               TRUE ~ ''))
 
 #1m do likely miscalibrated until jul14do visit
@@ -604,6 +597,7 @@ L1_2017 <- L1_2017 %>%
                               TRUE ~ flag_do1))
          
 #odd behavior in 1m do in November
+#need to follow around with HAE
 
 
 #save file ----
