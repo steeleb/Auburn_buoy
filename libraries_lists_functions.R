@@ -62,7 +62,7 @@ therm <- c('temp_C_0.5m', 'temp_C_1m', 'temp_C_2m', 'temp_C_4m',
 weather <- c('wind_dir_deg', 'wind_sp_mps', 'ave_wind_sp_mps', 
              'air_temp_degC', 'rel_hum_perc', 'bar_press_mmhg', 'daily_cum_rain_cm')
 weather_proc <- c('wind_dir_deg', 'wind_sp_mps', 'ave_wind_sp_mps', 
-                  'air_temp_degC', 'rel_hum_perc', 'bar_press_mmhg', 'rain_cm_hr')
+                  'air_temp_degC', 'rel_hum_perc', 'bar_press_mmhg', 'rain_cm')
 wind <- c('wind_dir_deg', 'wind_sp_mps', 'ave_wind_sp_mps')
 do1m = c('do_ppm_1m', 'dotemp_C_1m', 'do_sat_pct_1m')
 do14m = c('dotemp_C_14.5m', 'do_sat_pct_14.5m', 'do_ppm_14.5m')
