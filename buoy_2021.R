@@ -15,7 +15,7 @@ dump_dir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/'
 visit_dir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/raw_data/visit notes/'
 
 #timezones
-buoy_tz = 'Etc/GMT+4'
+buoy_tz = 'Etc/GMT+4' #yes, the file says it's in UTC -5, but it's incorrect and the visit times don't line up
 visit_tz = 'America/New_York'
 
 # read in buoy data ----
@@ -64,6 +64,14 @@ view(dst_check)
 #DST in 2021: 03/14/21; 11/07/21 look at those dates
 #looks good
 
+#look at battery
+ggplot(L0_2021, aes(x = datetime_instrument, y = bat_v)) +
+  geom_point()
+
+#battery is okay!
+L1_2021 <- L0_2021 %>% 
+  select(-bat_v)
+
 #read in visit data
 visit <- read_xlsx(file.path(visit_dir, '2021_visit_summary.xlsx'),
                    sheet = 'BuoyVisits',
@@ -95,26 +103,22 @@ visit <- visit %>%
 #### initial cleaning ####
 
 # recode NA values as NA ####
-L1_2021 <- L0_2021 %>% 
+L1_2021 <- L1_2021 %>% 
   mutate_at(vars(do_ppm_1m:temp_C_30m),
             ~ case_when(. < -99999.9 ~ NA_real_, # for -99999.99 and -100000 - had to do it this way because there were issues with -99999.99
                            TRUE ~ .))
 str(L1_2021)
 
-# recode values when battery below 8v
-L1_2021 <- L1_2021 %>% 
-  mutate_at(vars(all_of(do), all_of(therm), all_of(weather)),
-            ~ case_when(bat_v < 8 ~ NA_real_, 
-                        TRUE ~ .)) 
-
 #create flag columns
 L1_2021 <- L1_2021 %>% 
-  mutate(flag_do_1m = NA_character_,
-         flag_do_14p5m = NA_character_,
-         flag_do_32m = NA_character_,
-         flag_weather = NA_character_)
+  mutate(flag_do1 = '',
+         flag_do14 = '',
+         flag_do32 = '',
+         flag_met = '')
 
 #recode values from log and add flags
+unique(visit$sensor_depth)
+
 for(j in 1:nrow(visit)){
 L1_2021 <- L1_2021 %>% 
   mutate_at(vars(all_of(do1m), all_of(do14m)),
@@ -123,16 +127,16 @@ L1_2021 <- L1_2021 %>%
                           datetime_instrument >= visit$time_start[j] & 
                           datetime_instrument <= visit$time_end[j] ~ NA_real_,
                         TRUE ~ .)) %>% 
-  mutate(flag_do_1m = case_when(visit$sensor_type[j] == 'DO probe' &
+  mutate(flag_do1 = case_when(visit$sensor_type[j] == 'DO probe' &
                                   visit$sensor_depth[j] == 1 &
                                   datetime_instrument >= visit$time_start[j] & 
                                   datetime_instrument <= visit$time_end[j] ~ visit$flag[j],
-                                TRUE ~ flag_do_1m)) %>% 
-  mutate(flag_weather = case_when(visit$sensor_type[j] == 'weather station' &
+                                TRUE ~ flag_do1)) %>% 
+  mutate(flag_met = case_when(visit$sensor_type[j] == 'weather station' &
                                     datetime_instrument >= visit$time_start[j] & 
                                     datetime_instrument <= visit$time_end[j] &
                                     !is.na(visit$flag[j])~ visit$flag[j],
-                                  TRUE ~ flag_weather))
+                                  TRUE ~ flag_met))
 }
 
 #recode data before D flag, after R flag
@@ -150,8 +154,10 @@ L1_2021 <- L1_2021 %>%
 
 #### THERMISTERS ####
 buoy_therm_vert_L1 <- L1_2021 %>% 
-  select(datetime_instrument, therm) %>% 
-  gather(variable, value, -datetime_instrument) %>% 
+  select(datetime_instrument, all_of(therm)) %>% 
+  pivot_longer(names_to = 'variable', 
+               values_to = 'value', 
+               -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(therm)))
 
 #print monthly data
@@ -192,8 +198,10 @@ L1_2021 <- L1_2021 %>%
                                TRUE ~ temp_C_8m))
 
 buoy_therm_vert_L1 <- L1_2021 %>% 
-  select(datetime_instrument, therm) %>% 
-  gather(variable, value, -datetime_instrument) %>% 
+  select(datetime_instrument, all_of(therm)) %>% 
+  pivot_longer(names_to = 'variable', 
+               values_to = 'value', 
+               -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(therm)))
 
 ggplot(subset(buoy_therm_vert_L1, subset=(datetime_instrument>=as.POSIXct('2021-04-21', tz=buoy_tz) & datetime_instrument<as.POSIXct('2021-04-22', tz=buoy_tz))),
@@ -230,8 +238,8 @@ rm(buoy_therm_vert_L1)
 
 #### do ####
 buoy_do_vert_L1 <- L1_2021 %>% 
-  select(datetime_instrument, do) %>% 
-  gather(variable, value, -datetime_instrument) %>% 
+  select(datetime_instrument, all_of(do)) %>% 
+  pivot_longer(names_to = 'variable', values_to = 'value', -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(do)),
          depth = case_when(variable == 'do_ppm_1m' ~ 1,
                            variable == 'dotemp_C_1m' ~ 1,
@@ -289,8 +297,8 @@ L1_2021 <- L1_2021 %>%
             ~ case_when(datetime_instrument == may19 ~ NA_real_,
                         TRUE ~ .))
 buoy_do_vert_L1 <- L1_2021 %>% 
-  select(datetime_instrument, do) %>% 
-  gather(variable, value, -datetime_instrument) %>% 
+  select(datetime_instrument, all_of(do)) %>% 
+  pivot_longer(names_to = 'variable', values_to = 'value', -datetime_instrument) %>% 
   mutate(variable = factor(variable, c(do)),
          depth = case_when(variable == 'do_ppm_1m' ~ 1,
                            variable == 'dotemp_C_1m' ~ 1,
@@ -342,65 +350,53 @@ rm(buoy_do_vert_L1)
 
 # Weather ####
 
-#convert daily rain to rain in each hour
-daylist <- unique(format(L1_2021$datetime_instrument, '%Y-%m-%d'))
-L1_2021$rain_cm_hr = NA_real_
+#convert daily rain to rain in each 10mins
+L1_2021$rain_cm = NA_real_
 
 L1_2021 <- L1_2021 %>% 
   rownames_to_column()
 
-#need to gap fill daily_cum_rain_cm
-L1_2021$GF_cum_rain_cm = zoo::na.approx(L1_2021$daily_cum_rain_cm, method = 'linear', maxgap = 6)
+L1_2021_rain <- L1_2021 %>% 
+  select(rowname, datetime_instrument, daily_cum_rain_cm, rain_cm) %>% 
+  filter(!is.na(daily_cum_rain_cm))
+daylist <- unique(format(L1_2021_rain$datetime_instrument, '%Y-%m-%d'))
 
 for (z in 1:length(daylist)) {
-  df <- L1_2021 %>% 
-    filter(format(L1_2021$datetime_instrument, '%Y-%m-%d')==daylist[z]) %>% 
-    select(rowname, GF_cum_rain_cm)
-    if(length(na.omit(df$GF_cum_rain_cm))>0){
-      for (x in 1:nrow(df)){
-        if (x == 1) {
-          row_value = df$rowname[x]
-          L1_2021$rain_cm_hr[L1_2021$rowname == row_value] = df$GF_cum_rain_cm[x]
-          } else {
-            rain = df$GF_cum_rain_cm[x] - df$GF_cum_rain_cm[x-1]
-            row_value = df$rowname[x]
-            L1_2021$rain_cm_hr[L1_2021$rowname == row_value] = rain
-          }
+  df <- L1_2021_rain %>% 
+    filter(format(L1_2021_rain$datetime_instrument, '%Y-%m-%d')==daylist[z]) 
+  if(length(na.omit(df$daily_cum_rain_cm))>0){
+    for (x in 1:nrow(df)){
+      if (x == 1) {
+        row_value = df$rowname[x]
+        L1_2021_rain$rain_cm[L1_2021_rain$rowname == row_value] = df$daily_cum_rain_cm[x]
+      } else {
+        rain = df$daily_cum_rain_cm[x] - df$daily_cum_rain_cm[x-1]
+        row_value = df$rowname[x]
+        L1_2021_rain$rain_cm[L1_2021_rain$rowname == row_value] = rain
       }
-    } else {
-      print(daylist[z])
-      message('instrument offline')
     }
+  } else {
+    print(daylist[z])
+    message('instrument offline') #if this prints, there is an issue, since all na were removed and daylist made from narm dataframe
+  }
 }
 
-# recode negative rain to na
-L1_2021 <- L1_2021 %>% 
-  mutate(rain_cm_hr = case_when(rain_cm_hr < 0 ~ NA_real_,
-                                TRUE ~ rain_cm_hr))
+#look at the rain values for negatives
+view(L1_2021_rain)
 
-#need to make sure this is working correctly; check daily total with total of rain_cm_hr
-rain <- L1_2021 %>%
-  mutate_at(vars(daily_cum_rain_cm, rain_cm_hr),
-            ~ case_when(is.na(.) ~ 0,
-                        TRUE ~ .)) %>% 
-  mutate(rain_cm_hr = case_when(rain_cm_hr < 0 ~ 0,
-                                TRUE ~ rain_cm_hr)) %>% 
-  mutate(date = as.character(format(datetime_instrument, '%Y-%m-%d'))) %>% 
-  group_by(date) %>% 
-  summarise(rain_cum_total = max(daily_cum_rain_cm, na.rm = T),
-         rain_total = sum(na.omit(rain_cm_hr)))  %>% 
-  filter(rain_cum_total != rain_total) %>% 
-  mutate(flag_rain = 'm') %>% 
-  select(date, flag_rain)
+#all the negative rains are internal resets, recode to 0 (same as cum rain for that 10 min period)
+L1_2021_rain <- L1_2021_rain %>% 
+  mutate(rain_cm = case_when(rain_cm <0 ~ 0,
+                             TRUE ~ rain_cm))
 
-# these are malfunction dates, flag and recode rain data for these dates; drop cumulative rain data
+#select only rowname and rain_cm and join with L1 dataset
+L1_2021_rain <- L1_2021_rain %>% 
+  select(rowname, rain_cm)
 L1_2021 <- L1_2021 %>% 
-  mutate(date = format(datetime_instrument, '%Y-%m-%d')) %>% 
-  left_join(., rain) %>% 
-  mutate(rain_cm_hr = case_when(flag_rain == 'm' ~ NA_real_,
-                                TRUE ~ rain_cm_hr)) %>% 
-  select(-daily_cum_rain_cm, -GF_cum_rain_cm)
-  
+  select(-rain_cm) %>% 
+  full_join(., L1_2021_rain) %>% 
+  select(-rowname)
+
 #reorient and look at monthly graphs
 buoy_weather_vert_L1 <- L1_2021 %>% 
   select(datetime_instrument, all_of(weather_proc)) %>% 
@@ -516,10 +512,24 @@ for (i in 1: length(monthlist)){
 
 
 # save file -----
+colnames(L1_2021)
+
+#look at flags
+unique(L1_2021$flag_do1)
+unique(L1_2021$flag_do14)
+unique(L1_2021$flag_do32)
+unique(L1_2021$flag_met)
+unique(L1_2021$flag_wind)
+
+#combine the met and wind flags
+L1_2021 <- L1_2021 %>% 
+  mutate(flag_met = case_when(flag_met == '' ~ flag_wind,
+                       flag_met != '' & flag_wind != '' ~ paste(flag_met, flag_wind, sep = ', '),
+                       TRUE ~ flag_met)) %>% 
+  select(-flag_wind)
 
 L1_2021 %>% 
-  mutate(datetime_EST = with_tz(datetime_instrument, tzone = buoy_tz)) %>% 
-  mutate(datetime_instrument_EDT = as.character(datetime_instrument),
-         datetime_EST = as.character(datetime_EST)) %>% 
+  mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'Etc/GMT+5')) %>% 
+  mutate(datetime_EST = as.character(datetime_EST)) %>% 
   select(-datetime_instrument) %>% 
   write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn buoy/data/L1 data/buoy_L1_2021.csv')
