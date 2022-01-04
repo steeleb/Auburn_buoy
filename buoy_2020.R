@@ -26,8 +26,7 @@ L02020_met <- read_csv(file.path(data_dir,'may-nov2020_buoyweather.csv'),
                        col_names = met2020,
                        col_types = 'cnnnnnnnn',
                        skip = 4) %>% 
-  mutate(datetime = as.POSIXct(datetime, tz='Etc/GMT+5', format='%m-%d-%Y %H:%M')) %>% 
-  mutate(datetime = with_tz(datetime, tz = 'Etc/GMT+4')) %>%
+  mutate(datetime = as.POSIXct(datetime, tz='Etc/GMT+4', format='%m-%d-%Y %H:%M')) %>%
   rename(datetime_instrument = datetime) %>% 
   select(-bat_v)
 
@@ -74,6 +73,10 @@ L1_2020 <- L0_2020 %>%
             ~ case_when(. < -99999.9 ~ NA_real_, # for -99999.99 and -100000 - had to do it this way because there were issues with -99999.99
                            TRUE ~ .))
 str(L1_2020)
+
+#check battery
+ggplot(L1_2020, aes(x = datetime_instrument, y = bat_v)) +
+  geom_point()
 
 # recode values when battery below 8v
 L1_2020 <- L1_2020 %>% 
@@ -138,13 +141,13 @@ L1_2020_vert %>%
 
 #create flag columns
 L1_2020 <- L1_2020 %>% 
-  mutate(flag_do_1m = NA_character_,
-         flag_do_14p5m = NA_character_,
-         flag_do_32m = NA_character_)
+  mutate(flag_do1 = '',
+         flag_do14 = '',
+         flag_do32 = '')
 
 ####L1 Cleaning####
 
-#### THERMISTERS ####
+#### THERMISTERS ----
 buoy_therm_vert_L1 <- L1_2020 %>% 
   select(datetime_instrument, all_of(therm)) %>% 
   pivot_longer(names_to = 'variable', 
@@ -418,95 +421,72 @@ for(i in 1:length(monthlist)){
 
 #add flags from visit log
 visit_flag = visit %>% 
-  mutate(flag_do_1m = case_when(sensor_type == 'DO' & sensor_depth == 1 & maintenance_performed == 'clean' ~ 'w',
+  mutate(flag_do1 = case_when(sensor_type == 'DO' & sensor_depth == 1 & maintenance_performed == 'clean' ~ 'w',
                                 sensor_type == 'DO' & sensor_depth == 1 & maintenance_performed == 'calibrate' ~ 'c',
                                 TRUE ~ NA_character_),
-         flag_do_14p5m = case_when(sensor_type == 'DO' & sensor_depth == 14.5 & maintenance_performed == 'clean' ~ 'w',
+         flag_do14 = case_when(sensor_type == 'DO' & sensor_depth == 14.5 & maintenance_performed == 'clean' ~ 'w',
                                    sensor_type == 'DO' & sensor_depth == 14.5 & maintenance_performed == 'calibrate' ~ 'c',
                                    TRUE ~ NA_character_),
-         flag_do_32m = case_when(sensor_type == 'DO' & sensor_depth == 32 & maintenance_performed == 'clean' ~ 'w',
+         flag_do32 = case_when(sensor_type == 'DO' & sensor_depth == 32 & maintenance_performed == 'clean' ~ 'w',
                                  sensor_type == 'DO' & sensor_depth == 32 & maintenance_performed == 'calibrate' ~ 'c',
                                  TRUE ~ NA_character_))
 
 for (f in 1:nrow(visit_flag)){
   L1_2020 <- L1_2020 %>% 
-    mutate(flag_do_1m = case_when(datetime_instrument >= visit_flag$time_start[f] & 
+    mutate(flag_do1 = case_when(datetime_instrument >= visit_flag$time_start[f] & 
                                     datetime_instrument <= visit_flag$time_end[f] &
-                                    !is.na(visit_flag$flag_do_1m[f]) ~ visit_flag$flag_do_1m[f],
-                                  TRUE ~ flag_do_1m),
-           flag_do_14p5m = case_when(datetime_instrument >= visit_flag$time_start[f] & 
+                                    !is.na(visit_flag$flag_do1[f]) ~ visit_flag$flag_do1[f],
+                                  TRUE ~ flag_do1),
+           flag_do14 = case_when(datetime_instrument >= visit_flag$time_start[f] & 
                                     datetime_instrument <= visit_flag$time_end[f] &
-                                    !is.na(visit_flag$flag_do_14p5m[f]) ~ visit_flag$flag_do_14p5m[f],
-                                  TRUE ~ flag_do_14p5m),
-           flag_do_32m = case_when(datetime_instrument >= visit_flag$time_start[f] & 
+                                    !is.na(visit_flag$flag_do14[f]) ~ visit_flag$flag_do14[f],
+                                  TRUE ~ flag_do14),
+           flag_do32 = case_when(datetime_instrument >= visit_flag$time_start[f] & 
                                        datetime_instrument <= visit_flag$time_end[f] &
-                                       !is.na(visit_flag$flag_do_32m[f]) ~ visit_flag$flag_do_32m[f],
-                                     TRUE ~ flag_do_32m))
+                                       !is.na(visit_flag$flag_do32[f]) ~ visit_flag$flag_do32[f],
+                                     TRUE ~ flag_do32))
 }
 
 # Weather data ----
 
-#convert daily rain to rain in each hour
-L1_2020$rain_cm_hr = NA_real_
+#convert daily rain to rain in each 10mins
+L1_2020$rain_cm = NA_real_
 
-#need a met time to run loop in, because the daily totals are in GMT +5, which causes issues with hourly calc
-L1_2020$met_datetime <- with_tz(L1_2020$datetime_instrument, tz = 'Etc/GMT+5')
-daylist <- unique(format(L1_2020$met_datetime, '%Y-%m-%d'))
 L1_2020 <- L1_2020 %>% 
   rownames_to_column()
 
-#need to gap fill daily_cum_rain_cm
-L1_2020$GF_cum_rain_cm = zoo::na.approx(L1_2020$daily_cum_rain_cm, method = 'linear', maxgap = 6)
+L1_2020_rain <- L1_2020 %>% 
+  select(rowname, datetime_instrument, daily_cum_rain_cm, rain_cm) %>% 
+  filter(!is.na(daily_cum_rain_cm))
+daylist <- unique(format(L1_2020_rain$datetime_instrument, '%Y-%m-%d'))
 
 for (z in 1:length(daylist)) {
-  df <- L1_2020 %>% 
-    filter(format(L1_2020$met_datetime, '%Y-%m-%d')==daylist[z]) %>% 
-    select(rowname, GF_cum_rain_cm)
-  if(length(na.omit(df$GF_cum_rain_cm))>0){
+  df <- L1_2020_rain %>% 
+    filter(format(L1_2020_rain$datetime_instrument, '%Y-%m-%d')==daylist[z]) 
+  if(length(na.omit(df$daily_cum_rain_cm))>0){
     for (x in 1:nrow(df)){
       if (x == 1) {
         row_value = df$rowname[x]
-        L1_2020$rain_cm_hr[L1_2020$rowname == row_value] = df$GF_cum_rain_cm[x]
+        L1_2020_rain$rain_cm[L1_2020_rain$rowname == row_value] = df$daily_cum_rain_cm[x]
       } else {
-        rain = df$GF_cum_rain_cm[x] - df$GF_cum_rain_cm[x-1]
+        rain = df$daily_cum_rain_cm[x] - df$daily_cum_rain_cm[x-1]
         row_value = df$rowname[x]
-        L1_2020$rain_cm_hr[L1_2020$rowname == row_value] = rain
+        L1_2020_rain$rain_cm[L1_2020_rain$rowname == row_value] = rain
       }
     }
   } else {
     print(daylist[z])
-    message('instrument offline')
+    message('instrument offline') #if this prints, there is an issue, since all na were removed and daylist made from narm dataframe
   }
 }
 
-# recode negative rain to na
+#select only rowname and rain_cm and join with L1 dataset
+L1_2020_rain <- L1_2020_rain %>% 
+  select(rowname, rain_cm)
 L1_2020 <- L1_2020 %>% 
-  mutate(rain_cm_hr = case_when(rain_cm_hr < 0 ~ NA_real_,
-                                TRUE ~ rain_cm_hr))
-
-#need to make sure this is working correctly; check daily total with total of rain_cm_hr
-rain <- L1_2020 %>%
-  mutate_at(vars(daily_cum_rain_cm, rain_cm_hr),
-            ~ case_when(is.na(.) ~ 0,
-                        TRUE ~ .)) %>% 
-  mutate(rain_cm_hr = case_when(rain_cm_hr < 0 ~ 0,
-                                TRUE ~ rain_cm_hr)) %>% 
-  mutate(date = as.character(format(datetime_instrument, '%Y-%m-%d'))) %>% 
-  group_by(date) %>% 
-  summarise(rain_cum_total = max(daily_cum_rain_cm, na.rm = T),
-            rain_total = sum(na.omit(rain_cm_hr)))  %>% 
-  filter(rain_cum_total != rain_total) %>% 
-  filter(abs(rain_cum_total - rain_cum_total)>.01) %>% # filter those that are off by more than 0.01
-  mutate(flag_rain = 'm') %>% 
-  select(date, flag_rain)
-
-# these are malfunction dates, flag and recode rain data for these dates; drop cumulative rain data
-L1_2020 <- L1_2020 %>% 
-  mutate(date = format(datetime_instrument, '%Y-%m-%d')) %>% 
-  left_join(., rain) %>% 
-  mutate(rain_cm_hr = case_when(flag_rain == 'm' ~ NA_real_,
-                                TRUE ~ rain_cm_hr)) %>% 
-  select(-daily_cum_rain_cm, -GF_cum_rain_cm)
+  select(-rain_cm) %>% 
+  full_join(., L1_2020_rain) %>% 
+  select(-rowname)
 
 #reorient and look at monthly graphs
 buoy_weather_vert_L1 <- L1_2020 %>% 
@@ -532,10 +512,10 @@ for (i in 1: length(monthlist)){
 
 #late to mid may rain values ~ 2cm/hr are suspect - recode all to na
 L1_2020 <- L1_2020 %>% 
-  mutate(rain_cm_hr = case_when(datetime_instrument >= as.Date('2020-05-20') &
+  mutate(rain_cm = case_when(datetime_instrument >= as.Date('2020-05-20') &
                                   datetime_instrument < as.Date('2020-05-25') &
-                                  rain_cm_hr > 2 ~ NA_real_,
-                                TRUE ~ rain_cm_hr))
+                                  rain_cm > 2 ~ NA_real_,
+                                TRUE ~ rain_cm))
 
 buoy_weather_vert_L1 <- L1_2020 %>% 
   select(datetime_instrument, all_of(weather_proc)) %>% 
@@ -565,7 +545,6 @@ colnames(L1_2020)
 
 L1_2020 %>% 
   mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'Etc/GMT+5')) %>% 
-  mutate(datetime_instrument_EDT = as.character(datetime_instrument),
-         datetime_EST = as.character(datetime_EST)) %>% 
-  select(-datetime_instrument, -met_datetime, - date, -flag, -flag_rain, ) %>% 
+  mutate(datetime_EST = as.character(datetime_EST)) %>% 
+  select(-datetime_instrument, -bat_v, -flag) %>% 
   write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn buoy/data/L1 data/buoy_L1_2020.csv')
