@@ -10,8 +10,9 @@
 source('libraries_lists_functions.R')
 
 #point to directories
-figdir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/programs/Auburn_buoy_GH/2015 cleaning graphs/'
+figdir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/programs/Auburn_buoy/2015 cleaning graphs/'
 datadir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/raw_data/buoy/raw_files/'
+dumpdir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/'
 
 
 L0_2015 <- read_csv(file.path(datadir, "Lake_Auburn-SDL500R-11-20-2015_00-27.csv"), 
@@ -675,6 +676,32 @@ ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2015-08
   scale_x_datetime(date_minor_breaks = '1 day') +
   scale_color_colorblind()
 
+#flag Nov 5 as suspect
+ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2015-11-05', tz='Etc/GMT+4') &
+                                         datetime_instrument < as.POSIXct('2015-11-06', tz='Etc/GMT+4'))),
+       aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
+  geom_point() +
+  facet_grid(sensor ~ ., scales='free_y') +
+  labs(title = 'Nov 2015 suspect do') +
+  final_theme +
+  scale_x_datetime(date_minor_breaks = '1 hour') +
+  scale_color_colorblind()
+
+L1_2015 <- L1_2015 %>% 
+  mutate(flag_do1 =case_when(datetime_instrument >= as.POSIXct('2015-11-05 09:40', tz = 'Etc/GMT+4') &
+                               datetime_instrument < as.POSIXct('2015-11-05 19:40', tz = 'Etc/GMT+4')~ 's',
+                             TRUE ~ ''))
+
+ggplot(subset(L1_2015, subset=(datetime_instrument >=as.POSIXct('2015-11-05', tz='Etc/GMT+4') &
+                                         datetime_instrument < as.POSIXct('2015-11-06', tz='Etc/GMT+4'))),
+       aes(x=datetime_instrument, y=do_sat_pct_1m, color = flag_do1)) +
+  geom_point() +
+  labs(title = 'Nov 2015 suspect do') +
+  final_theme +
+  scale_x_datetime(date_minor_breaks = '1 hour') +
+  scale_color_colorblind()
+
+                             
 #Nov 18 buoy removed
 ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2015-11-18', tz='Etc/GMT+4') &
                                          datetime_instrument < as.POSIXct('2015-11-19', tz='Etc/GMT+4'))),
@@ -744,7 +771,7 @@ L1_2015 <- L1_2015 %>%
                              datetime_instrument == jul2do ~ 'c',
                              datetime_instrument == jul30do~ 'c',
                              datetime_instrument == aug28do~ 'w',
-                             TRUE ~ ''),
+                             TRUE ~ flag_do1),
          flag_do14 =case_when(datetime_instrument == jun4do ~ 'w',
                               datetime_instrument == jul2do ~ 'c',
                               datetime_instrument == jul30do~ 'c',
@@ -757,10 +784,10 @@ L1_2015 <- L1_2015 %>%
 #save files ----
 
 L1_2015 %>% 
-  mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'EST')) %>% 
+  mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'Etc/GMT+5')) %>% 
   mutate(datetime_EST = as.character(datetime_EST)) %>% 
   select(-datetime_instrument) %>% 
-  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2015.csv')
+  write_csv(., file.path(dumpdir, 'buoy_L1_2015.csv'))
 
 
 
