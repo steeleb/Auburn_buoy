@@ -7,8 +7,9 @@
 source('libraries_lists_functions.R')
 
 #point to directories
-figdir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/programs/Auburn_buoy_GH/2013 cleaning graphs/'
+figdir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/programs/Auburn_buoy/2013 cleaning graphs/'
 datadir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/raw_data/buoy/raw_files/'
+dumpdir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/'
 
 
 # July-Nov2013
@@ -695,7 +696,7 @@ L1_2013 <- L1_2013 %>%
 #save file ----
 
 L1_2013 %>% 
-  mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'EST')) %>% 
+  mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'Etc/GMT+5')) %>% 
   mutate(datetime_EST = as.character(datetime_EST)) %>% 
   select(-datetime_instrument) %>% 
-  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/buoy_L1_2013.csv')
+  write_csv(., file.path(dumpdir, 'buoy_L1_2013.csv'))
