@@ -547,4 +547,4 @@ L1_2020 %>%
   mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'Etc/GMT+5')) %>% 
   mutate(datetime_EST = as.character(datetime_EST)) %>% 
   select(-datetime_instrument, -bat_v, -flag) %>% 
-  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn buoy/data/L1 data/buoy_L1_2020.csv')
+  write_csv(., file.path(dump_dir, 'buoy_L1_2020.csv'))
