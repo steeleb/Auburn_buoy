@@ -7,8 +7,9 @@
 source('libraries_lists_functions.R')
 
 #point to directories
-figdir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/programs/Auburn_buoy_GH/2017 cleaning graphs/'
+figdir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/programs/Auburn_buoy/2017 cleaning graphs/'
 datadir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/raw_data/buoy/raw_files/'
+dumpdir = 'C:/Users/steeleb/Dropbox/Lake Auburn Buoy/data/L1 data/'
 
 L0_2017 <- read_csv(file.path(datadir, 'Lake_Auburn-SDL500R-11-16-2017_13-10.csv'),
                     col_names = varnames2017,
@@ -531,6 +532,49 @@ buoy_do_vert_L1 <- L1_2017 %>%
                             variable == 'do_sat_pct_32m' ~ 'do_sat'))
 
 
+#recode data < 8; add suspect flagto data beginning Nov 1
+L1_2017 <- L1_2017 %>% 
+  mutate_at(vars(do_ppm_1m, do_sat_pct_1m),
+            ~case_when(datetime_instrument >= as.POSIXct('2017-11-01', tz = 'Etc/GMT+4') & do_ppm_1m < 9 ~ NA_real_, 
+                       TRUE ~ .)) %>% 
+  mutate(flag_do1 =case_when(is.na(do_ppm_1m) & datetime_instrument >= as.POSIXct('2017-11-01', tz = 'Etc/GMT+4') & datetime_instrument < removal ~ 'e',
+                             !is.na(do_ppm_1m) & datetime_instrument >= as.POSIXct('2017-11-01', tz = 'Etc/GMT+4') & datetime_instrument < removal ~ 's',
+                             TRUE ~ '')) %>% 
+  mutate(do_sat_pct_1m = case_when(flag_do1 == 'e' ~ NA_real_, # for whatever reason, the mutate at isn't working
+                                   TRUE ~ do_sat_pct_1m))
+ggplot(subset(L1_2017,
+              subset = datetime_instrument >= as.POSIXct('2017-11-01', tz = 'Etc/GMT+4')), 
+       aes(x = datetime_instrument, y = do_ppm_1m, color = flag_do1)) +
+  geom_point() + 
+  geom_point(aes(y = do_sat_pct_1m)) +
+  final_theme +
+  scale_x_datetime(date_minor_breaks = '1 hour')
+
+buoy_do_vert_L1 <- L1_2017 %>% 
+  select(datetime_instrument, all_of(do), flag_do1) %>% 
+  pivot_longer(names_to = 'variable', 
+               values_to = 'value', 
+               -c(datetime_instrument, 
+               flag_do1)) %>% 
+  mutate(variable = factor(variable, c(do)),
+         depth = case_when(variable == 'do_ppm_1m' ~ 1,
+                           variable == 'dotemp_C_1m' ~ 1,
+                           variable == 'do_sat_pct_1m' ~ 1,
+                           variable == 'do_ppm_14.5m' ~ 14.5,
+                           variable == 'dotemp_C_14.5m' ~ 14.5,
+                           variable == 'do_sat_pct_14.5m' ~ 14.5,
+                           variable == 'do_ppm_32m' ~ 32,
+                           variable == 'dotemp_C_32m' ~ 32,
+                           variable == 'do_sat_pct_32m' ~ 32),
+         sensor = case_when(variable == 'do_ppm_1m' ~ 'do_ppm',
+                            variable == 'dotemp_C_1m' ~ 'do_temp',
+                            variable == 'do_sat_pct_1m' ~ 'do_sat',
+                            variable == 'do_ppm_14.5m' ~ 'do_ppm',
+                            variable == 'dotemp_C_14.5m' ~ 'do_temp',
+                            variable == 'do_sat_pct_14.5m' ~ 'do_sat',
+                            variable == 'do_ppm_32m' ~ 'do_ppm',
+                            variable == 'dotemp_C_32m' ~ 'do_temp',
+                            variable == 'do_sat_pct_32m' ~ 'do_sat'))
 
 #buoy removed Nov 16
 ggplot(subset(buoy_do_vert_L1, subset=(datetime_instrument >=as.POSIXct('2017-11-16', tz='Etc/GMT+4') &
@@ -549,7 +593,7 @@ buoy_do_vert_L1 <- buoy_do_vert_L1 %>%
 for (i in 1: length(monthlist)){
   df = buoy_do_vert_L1 %>% 
     filter(month == monthlist[i])
-  plot <- ggplot(df, aes(x=datetime_instrument, y=value, color=as.factor(depth))) +
+  plot <- ggplot(df, aes(x=datetime_instrument, y=value, color=as.factor(depth), shape = flag_do1)) +
     geom_point() +
     facet_grid(sensor ~ ., scales='free_y') +
     labs(title = paste0('2017-', monthlist[i], ' do data - clean')) +
@@ -572,7 +616,7 @@ L1_2017 <- L1_2017 %>%
                              datetime_instrument == jul19do ~ 'w',
                              datetime_instrument == aug24do ~ 'w',
                              datetime_instrument == sep14 ~ 'w',
-                             TRUE ~ ''),
+                             TRUE ~ flag_do1),
          flag_do14 =case_when(datetime_instrument == jun7do ~ 'w',
                               datetime_instrument == jun22do ~ 'w',
                               datetime_instrument == jul6do ~ 'w',
@@ -593,7 +637,7 @@ L1_2017 <- L1_2017 %>%
 #1m do likely miscalibrated until jul14do visit
 L1_2017 <- L1_2017 %>% 
   mutate(flag_do1 = case_when(datetime_instrument<jul14do & flag_do1 == '' ~ 'm',
-                              datetime_instrument<jul14do & flag_do1 != '' ~ paste0(flag_do1, ', m'),
+                              datetime_instrument<jul14do & flag_do1 != '' ~ paste0(flag_do1, '; m'),
                               TRUE ~ flag_do1))
          
 #odd behavior in 1m do in November
@@ -603,7 +647,7 @@ L1_2017 <- L1_2017 %>%
 #save file ----
 
 L1_2017 %>% 
-  mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'EST')) %>% 
+  mutate(datetime_EST = with_tz(datetime_instrument, tzone = 'Etc/GMT+5')) %>% 
   mutate(datetime_EST = as.character(datetime_EST)) %>% 
   select(-datetime_instrument) %>% 
-  write_csv(., 'C:/Users/steeleb/Dropbox/Lake Auburn buoy/data/L1 data/buoy_L1_2017.csv')
+  write_csv(., file.path(dumpdir, 'buoy_L1_2017.csv'))
