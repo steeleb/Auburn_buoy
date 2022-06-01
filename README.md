@@ -19,4 +19,4 @@ Preparation for data publication:
 
 ## Other documents
 
-A file that contains flag definitions (AubBuoy_FlagCodeDefinitinos.xlsx) is also contained in this repository. While the code definitions are included in the EDI metadata, this is an easy way to see definitions. 
+A file that contains flag definitions (AubBuoy_FlagCodeDefinitions.xlsx) is also contained in this repository. While the code definitions are included in the EDI metadata, this is an easy way to see definitions. 

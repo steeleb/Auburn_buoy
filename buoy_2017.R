@@ -77,7 +77,7 @@ L0_2017_vert <- L0_2017 %>%
 #   final_theme
 
 #recode NA values as NA
-L1_2017 <- L0_2017 %>% 
+L1_2017 <- L1_2017 %>% 
   mutate_at(vars(do_ppm_1m:temp_C_30m),
             ~(case_when(. < -99999.9 ~ NA_real_, # for -99999.99 and -100000 - had to do it this way because there were issues with -99999.99
                            TRUE ~ .)))
